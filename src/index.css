@@ -1,0 +1,447 @@
+/* src/index.css */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 2rem;
+  background-color: #f4f7f6;
+}
+
+h1, h2 {
+  color: #333;
+}
+
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+.project-item {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Estilos para el Gantt */
+.gantt .bar-wrapper.active {
+  outline: 2px solid #007bff;
+}
+
+.project-item {
+  /* Modificamos esto para que los botones se alineen a la derecha */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.project-info {
+  /* Un contenedor para el texto, para que crezca */
+  flex-grow: 1;
+}
+
+.project-actions button {
+  margin-left: 8px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-modify {
+  background-color: #ffc107; /* Amarillo */
+}
+
+.btn-delete {
+  background-color: #dc3545; /* Rojo */
+  color: white;
+}
+.task-form-container {
+  padding: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+}
+
+.task-form-container h3 {
+  margin-top: 0;
+}
+
+.task-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Dos columnas */
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Campo de nombre ocupa ambas columnas */
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  text-align: right;
+}
+.project-detail-layout {
+  display: flex; /* Habilita flexbox */
+  gap: 20px;     /* Espacio entre las columnas */
+  margin-top: 2rem;
+}
+
+.task-list-panel {
+  flex: 1; /* Ocupa 1 parte del espacio */
+  max-width: 40%; /* Máximo 40% del ancho total */
+  padding: 1rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.gantt-chart-panel {
+  flex: 2; /* Ocupa 2 partes del espacio (el doble que la lista) */
+  max-width: 60%; /* Máximo 60% del ancho total */
+  padding: 1rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow-x: auto; /* Para que el Gantt pueda hacer scroll horizontal si es muy ancho */
+}
+
+.tab-navigation {
+  display: flex;
+  border-bottom: 2px solid #ccc;
+  margin-bottom: 2rem;
+}
+
+.tab-button {
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 4px solid transparent; /* Borde inferior invisible */
+  margin-bottom: -2px; /* Alinea con el borde de la navegación */
+}
+
+.tab-button.active {
+  color: #007bff;
+  border-bottom-color: #007bff; /* Borde azul para la pestaña activa */
+}
+
+.tab-content {
+  padding-top: 1rem;
+}
+
+/* --- Estilos del Dashboard de Presupuesto --- */
+.budget-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+.dashboard-card {
+  padding: 1.5rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.dashboard-card h3 {
+  margin-top: 0;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+/* Estilos de formulario genéricos para las tarjetas */
+.card-form .form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.card-form .form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.card-form .form-group input,
+.card-form .form-group select {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.card-form .form-actions {
+  text-align: right;
+  margin-top: 1.5rem;
+}
+
+.item-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 1rem;
+  max-height: 200px; /* Altura máxima para la lista */
+  overflow-y: auto; /* Scroll si hay muchos ítems */
+  border-top: 1px solid #eee;
+}
+
+.item-list li {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.item-list li:nth-child(odd) {
+  background-color: #fcfcfc;
+}
+.item-list li strong {
+  color: #333;
+}
+.item-list li span {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.budget-dashboard-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.nav-card {
+  display: block; /* Para que todo el div sea un link */
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  text-decoration: none;
+  color: #333;
+  font-weight: 600;
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+}
+.nav-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+  color: #007bff;
+}
+
+/* --- Estilos para las Páginas de Datos (Tabla) --- */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.page-actions button {
+  margin-left: 0.5rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.btn-new {
+  background-color: #007bff;
+  color: white;
+}
+
+/* --- Estilos para la Tabla de Datos --- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  border-radius: 8px;
+  overflow: hidden; /* Para que los bordes redondeados funcionen */
+}
+
+.data-table th,
+.data-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.data-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #555;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+.data-table tbody tr.selected {
+  background-color: #cce5ff; /* Color azul claro para fila seleccionada */
+}
+
+.data-table td .action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.modal-overlay {
+  position: fixed; /* Se superpone a todo */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7); /* Fondo oscuro semitransparente */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px; /* Ancho máximo del modal */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.task-list-panel {
+  padding: 1rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.gantt-chart-panel {
+  padding: 1rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow-x: auto; 
+}
+.gantt .grid-header,
+.gantt .grid-body {
+  min-width: 300px !important; 
+}
+
+.gantt .chart-header,
+.gantt .chart-body {
+  flex: 1;
+}
+.dms-layout {
+  display: flex;
+  gap: 1.5rem;
+  height: calc(100vh - 250px);
+}
+
+.dms-sidebar {
+  flex: 1;
+  max-width: 300px;
+  background: #fdfdfd;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.dms-main {
+  flex: 3;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.dms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.dms-header h3 {
+  margin: 0;
+}
+
+.folder-tree ul {
+  list-style: none;
+  padding-left: 20px;
+}
+
+.folder-node {
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+}
+.folder-node:hover {
+  background-color: #f0f0f0;
+}
+.folder-node.selected {
+  background-color: #e0eaff;
+  font-weight: bold;
+}
+.folder-node .toggle {
+  margin-right: 5px;
+  font-family: monospace;
+}
+.folder-content-list {
+  list-style: none;
+  padding: 0;
+}
+.folder-content-list li {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f7f7f7;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.folder-content-list li:hover {
+  background-color: #f9f9f9;
+}
+.folder-content-list li .icon {
+  margin-right: 10px;
+  font-size: 1.2rem;
+}
