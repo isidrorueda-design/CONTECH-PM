@@ -1,31 +1,19 @@
 // src/components/admin/NewUserForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react'; // <-- 1. Quita 'useEffect'
 import api from '../../api/axiosConfig';
 
-function NewUserForm() {
+// 2. Recibe 'companies' y 'onUserCreated' como props
+function NewUserForm({ companies, onUserCreated }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyId, setCompanyId] = useState('');
-  const [role, setRole] = useState('admin'); // Por defecto, creamos 'admin' de compañía
+  const [role, setRole] = useState('admin');
   
-  const [companies, setCompanies] = useState([]); // Para el dropdown
+  // const [companies, setCompanies] = useState([]); // <-- 3. BORRA ESTE ESTADO
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Carga las compañías para el <select>
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        // (Nota: Necesitamos un endpoint 'GET /companies/' para el Super Admin)
-        // (Por ahora, asumimos que existe o que lo crearemos)
-        const response = await api.get('/companies/'); // <-- Necesitaremos crear este endpoint
-        setCompanies(response.data);
-      } catch (err) {
-        setError('No se pudieron cargar las compañías. ¿Inició sesión como Super Admin?');
-      }
-    };
-    fetchCompanies();
-  }, []);
+  // 4. BORRA TODO EL 'useEffect' que cargaba las compañías
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,6 +41,9 @@ function NewUserForm() {
       setPassword('');
       setCompanyId('');
       setRole('admin');
+      
+      // 5. Llama al 'callback' del padre
+      onUserCreated(response.data);
 
     } catch (err) {
       if (err.response && err.response.data && err.response.data.detail) {
@@ -82,6 +73,7 @@ function NewUserForm() {
 
         <div className="form-group">
           <label htmlFor="userCompany">Compañía:</label>
+          {/* 6. El 'select' ahora usa la lista 'companies' de los props */}
           <select id="userCompany" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
             <option value="">-- Seleccione una compañía --</option>
             {companies.map(company => (
@@ -95,8 +87,6 @@ function NewUserForm() {
           <select id="userRole" value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="admin">Admin (Administrador de Compañía)</option>
             <option value="user">User (Usuario Normal)</option>
-            {/* (Solo un Super Admin puede crear otro Super Admin, 
-                 lo cual es raro pero podríamos añadirlo si 'user.role' es 'super_admin') */}
           </select>
         </div>
         

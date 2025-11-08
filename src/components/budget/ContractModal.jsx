@@ -1,8 +1,9 @@
+// src/components/budget/ContractModal.jsx
 import React, { useState, useEffect } from 'react';
-
-const API_URL = 'http://127.0.0.1:8000';
+import api from '../../api/axiosConfig'; // <-- 1. Importa 'api'
 
 function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
+  // Estados para los campos del formulario
   const [formData, setFormData] = useState({
     contractor_id: '',
     work_item_id: '',
@@ -14,25 +15,31 @@ function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
     anticipo: 0,
     aplica_iva: true,
   });
-
+  
+  // Estados para las listas de los desplegables
   const [contractors, setContractors] = useState([]);
-  const [workItems, setWorkItems] = useState([]);  
+  const [workItems, setWorkItems] = useState([]);
+  
   const [error, setError] = useState(null);
 
+  // Carga las listas para los <select> cuando el modal se abre
   useEffect(() => {
-    fetch(`${API_URL}/contractors/`)
-      .then(res => res.json())
-      .then(setContractors)
+    // 2. Usa 'api.get' (ya está autenticado)
+    api.get('/contractors/')
+      .then(response => {
+        setContractors(response.data); // Axios usa .data
+      })
       .catch(err => setError('No se pudieron cargar los contratistas'));
       
-    // Cargar Partidas (del Proyecto)
-    fetch(`${API_URL}/projects/${projectId}/work_items/`)
-      .then(res => res.json())
-      .then(setWorkItems)
+    // 3. Usa 'api.get' (ya está autenticado)
+    api.get(`/projects/${projectId}/work_items/`)
+      .then(response => {
+        setWorkItems(response.data); // Axios usa .data
+      })
       .catch(err => setError('No se pudieron cargar las partidas'));
   }, [projectId]);
 
-  // Rellenar formulario si es modo 'edit'
+  // Rellenar formulario si es modo 'edit' (sin cambios)
   useEffect(() => {
     if (mode === 'edit' && initialData) {
       setFormData({
@@ -47,7 +54,6 @@ function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
         aplica_iva: initialData.aplica_iva,
       });
     } else {
-      // Limpiar si es 'new'
       setFormData({
         contractor_id: '', work_item_id: '', numero_contrato: '', trabajos: '',
         contratado: 0, aditiva: 0, deductiva: 0, anticipo: 0, aplica_iva: true,
@@ -55,22 +61,14 @@ function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
     }
   }, [mode, initialData]);
 
-  // Handler genérico para cambios en los inputs
+  // Handlers de cambios (sin cambios)
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
-  
-  // Handler para convertir números
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: parseFloat(value) || 0,
-    }));
+    setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
   };
 
   const handleSubmit = async (e) => {
@@ -90,27 +88,22 @@ function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
 
     const isNew = mode === 'new';
     const url = isNew 
-      ? `${API_URL}/projects/${projectId}/contracts/` 
-      : `${API_URL}/contracts/${initialData.id}`;
-    const method = isNew ? 'POST' : 'PUT';
+      ? `/projects/${projectId}/contracts/` 
+      : `/contracts/${initialData.id}`;
+    const method = isNew ? 'post' : 'put'; // Métodos de Axios
 
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(contractData),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Error al guardar.');
-      }
+      // 4. Usa 'api[method]' (ya está autenticado)
+      const response = await api[method](url, contractData);
       
-      const savedContract = await response.json();
-      onSave(savedContract); // Avisa al padre
+      onSave(response.data); // Avisa al padre
       onClose(); // Cierra el modal
     } catch (err) {
-      setError(err.message);
+      if (err.response && err.response.data && err.response.data.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError('Error al guardar el contrato.');
+      }
     }
   };
 
@@ -126,6 +119,8 @@ function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
             <label>Contratista (Tabla 1):</label>
             <select name="contractor_id" value={formData.contractor_id} onChange={handleChange}>
               <option value="">-- Seleccione un Contratista --</option>
+              {/* 5. Verificación de seguridad: 'workItems' ahora es un array vacío [] 
+                   mientras carga, por lo que .map() funciona. */}
               {contractors.map(c => (
                 <option key={c.id} value={c.id}>{c.razon_social}</option>
               ))}
@@ -142,6 +137,7 @@ function ContractModal({ mode, projectId, initialData, onClose, onSave }) {
             </select>
           </div>
 
+          {/* ... (Resto del formulario: No. Contrato, Montos, etc. sin cambios) ... */}
           <div className="form-group">
             <label>Número de Contrato:</label>
             <input type="text" name="numero_contrato" value={formData.numero_contrato} onChange={handleChange} />

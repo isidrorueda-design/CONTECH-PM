@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import api from '../../api/axiosConfig';
 
+// 1. Recibe el prop 'onCompanyCreated'
 function NewCompanyForm({ onCompanyCreated }) {
   const [name, setName] = useState('');
   const [error, setError] = useState(null);
@@ -19,12 +20,12 @@ function NewCompanyForm({ onCompanyCreated }) {
 
     try {
       const response = await api.post('/companies/', { name });
-
-      setSuccess(`Compañía "${response.data.name}" creada con ID: ${response.data.id}`);
-      setName(''); // Limpia el formulario
-      if (onCompanyCreated) {
-        onCompanyCreated(response.data); // Avisa al padre (opcional)
-      }
+      
+      setSuccess(`Compañía "${response.data.name}" creada.`);
+      setName('');
+      
+      // 2. Llama al 'callback' del padre para actualizar la lista
+      onCompanyCreated(response.data); 
 
     } catch (err) {
       if (err.response && err.response.data && err.response.data.detail) {
@@ -41,7 +42,7 @@ function NewCompanyForm({ onCompanyCreated }) {
       <form onSubmit={handleSubmit} className="card-form">
         {error && <p style={{ color: 'red' }}>{error}</p>}
         {success && <p style={{ color: 'green' }}>{success}</p>}
-
+        
         <div className="form-group">
           <label htmlFor="companyName">Nombre de la Compañía:</label>
           <input
@@ -51,7 +52,7 @@ function NewCompanyForm({ onCompanyCreated }) {
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-
+        
         <div className="form-actions">
           <button type="submit" className="btn-save">Crear Compañía</button>
         </div>

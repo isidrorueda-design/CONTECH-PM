@@ -45,6 +45,7 @@ function CompanyProjectDashboard() {
         if (err.response && err.response.status === 401) {
           setError("Sesión expirada. Por favor, inicie sesión de nuevo.");
         } else {
+          // Captura el error 403
           setError(err.message || "Error al cargar proyectos.");
         }
       });
@@ -89,9 +90,9 @@ function CompanyProjectDashboard() {
       </div>
 
       <NewProjectForm onProjectCreated={handleProjectCreated} />
-      
+
       <h1>Mis Proyectos</h1>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p style={{ color: 'red' }}>Request failed with status code 403</p>} {/* Muestra el error 403 */}
       <ul className="project-list">
         {projects.map(project => (
           <li key={project.id} className="project-item">
@@ -142,4 +143,4 @@ function ProjectList() {
   return <CompanyProjectDashboard />;
 }
 
-export default ProjectList;
+export default ProjectList; 

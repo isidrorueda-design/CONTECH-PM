@@ -6,12 +6,14 @@ import api, { setAuthToken } from '../api/axiosConfig';
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  // 1. El estado se inicializa desde localStorage
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(() => {
     const savedToken = localStorage.getItem('token');
     return savedToken ? jwtDecode(savedToken) : null;
   });
 
+  // 2. Función de Logout (estable)
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
@@ -19,7 +21,9 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
   }, []);
 
-  // Hook de Arranque (setea el token en axios si la página se recarga)
+  // 3. useEffect de Arranque (para refrescar la página)
+  // Se asegura de que la cabecera de 'api' tenga el token
+  // si la página se recarga.
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     if (savedToken) {
@@ -27,7 +31,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Hook Interceptor (te desloguea si el token expira)
+  // 4. useEffect del Interceptor (te desloguea si el token expira)
   useEffect(() => {
     const errorInterceptor = api.interceptors.response.use(
       (response) => response,
@@ -43,8 +47,8 @@ export function AuthProvider({ children }) {
     };
   }, [logout]);
 
-  // --- ¡FUNCIÓN DE LOGIN CORREGIDA! ---
-  // Ahora devuelve la ruta de redirección
+  // 5. ¡FUNCIÓN DE LOGIN CORREGIDA!
+  // Ahora devuelve el 'role' para que LoginPage decida.
   const login = async (email, password) => {
     const params = new URLSearchParams();
     params.append('username', email);
@@ -56,6 +60,9 @@ export function AuthProvider({ children }) {
 
     if (response.data.access_token) {
       const newToken = response.data.access_token;
+      
+      // --- INICIO DE LA CORRECCIÓN ---
+      // Hacemos todo INMEDIATAMENTE, antes de que React redirija.
       
       // 1. Guarda el token en localStorage
       localStorage.setItem('token', newToken);
@@ -74,10 +81,9 @@ export function AuthProvider({ children }) {
       } else {
         return '/projects'; // Ruta del usuario normal
       }
+      // --- FIN DE LA CORRECCIÓN ---
     }
-    // Si falla, la promesa se rechazará y el 'catch' en LoginPage se activará
   };
-  // --- FIN DE LA CORRECCIÓN ---
 
   const value = { token, user, login, logout };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

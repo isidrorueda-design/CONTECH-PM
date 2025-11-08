@@ -121,8 +121,8 @@ ul {
 }
 
 .task-list-panel {
-  flex: 1; /* Ocupa 1 parte del espacio */
-  max-width: 40%; /* Máximo 40% del ancho total */
+  flex-grow: 1; /* Permite que crezca para ocupar el espacio */
+  width: 100%; /* Ocupa el 100% del ancho de su contenedor */
   padding: 1rem;
   background-color: #fff;
   border-radius: 8px;
@@ -130,8 +130,8 @@ ul {
 }
 
 .gantt-chart-panel {
-  flex: 2; /* Ocupa 2 partes del espacio (el doble que la lista) */
-  max-width: 60%; /* Máximo 60% del ancho total */
+  width: 100%; /* Ocupa el 100% del ancho de su contenedor */
+  flex-grow: 1; /* Permite que crezca para ocupar el espacio disponible */
   padding: 1rem;
   background-color: #fff;
   border-radius: 8px;
@@ -344,6 +344,9 @@ ul {
   width: 90%;
   max-width: 500px; /* Ancho máximo del modal */
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  /* --- INICIO DE LA MODIFICACIÓN --- */
+  max-height: 85vh; /* Altura máxima del 85% de la pantalla */
+  overflow-y: auto; /* Añade barra de scroll si el contenido es más alto */
 }
 
 .task-list-panel {
@@ -361,6 +364,45 @@ ul {
   overflow-x: auto; 
 }
 .gantt .grid-header,
+.gantt_task_line.gantt-completed {
+  background-color: #28a745;
+  border-color: #1e7e34;
+}
+.gantt_task_line.gantt-completed .gantt_task_progress {
+  background-color: #218838;
+}
+
+.gantt_task_line.gantt-delayed {
+  background-color: #dc3545;
+  border-color: #c82333;
+}
+.gantt_task_line.gantt-delayed .gantt_task_progress {
+  background-color: #c82333;
+}
+
+/* --- Nuevos Estilos para DHTMLx Gantt --- */
+.gantt_task_line.gantt-completed {
+  background-color: #28a745; /* Verde */
+  border-color: #1e7e34;
+}
+.gantt_task_line.gantt-completed .gantt_task_progress {
+  background-color: #218838;
+}
+
+.gantt_task_line.gantt-pending {
+  background-color: #adb5bd; /* Gris */
+  border-color: #8a929a;
+}
+.gantt_task_line.gantt-pending .gantt_task_progress {
+  background-color: #6c757d;
+}
+
+/* --- Estilo para la cabecera del mes en el Gantt --- */
+.gantt-month-header {
+  font-weight: bold !important;
+}
+
+/* --- FIN DE LA CORRECCIÓN --- */
 .gantt .grid-body {
   min-width: 300px !important; 
 }
@@ -444,4 +486,93 @@ ul {
 .folder-content-list li .icon {
   margin-right: 10px;
   font-size: 1.2rem;
+}
+
+/* --- Estilos para el Árbol de Tareas --- */
+.task-tree-grid {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1.2fr 1fr 1fr 1fr 1fr 1.5fr; /* Quita columna de acciones */
+  border-bottom: 1px solid #e0e0e0;
+  align-items: center;
+  cursor: pointer;
+}
+.task-row:last-child {
+  border-bottom: none;
+}
+.task-row.selected {
+  background-color: #cce5ff; /* Mismo color que en las otras tablas */
+}
+
+.task-row.header {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.task-cell {
+  padding: 12px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-right: 5px;
+  color: #007bff;
+}
+
+/* --- Estilos para la celda de progreso --- */
+.task-cell.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Estilos para edición en línea en la tabla de tareas --- */
+.inline-edit-select {
+  width: auto; /* Ancho automático */
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
+  flex-shrink: 0; /* Evita que el select se encoja */
+}
+
+.inline-edit-date {
+  width: 95%;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.inline-edit-select:hover,
+.inline-edit-date:hover {
+  border: 1px solid #ccc;
+  background-color: #fff;
+}
+
+/* --- Estilos para la Barra de Progreso --- */
+.progress-bar-container {
+  width: 100%; /* Ocupa todo el espacio disponible */
+  background-color: #e9ecef;
+  border-radius: 4px;
+  height: 18px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background-color 0.4s ease;
 }

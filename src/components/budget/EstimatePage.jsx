@@ -1,11 +1,9 @@
 // src/components/budget/EstimatePage.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import api from '../../api/axiosConfig'; // <-- 1. Importa 'api'
 import EstimateModal from './EstimateModal';
-import api from '../../api/axiosConfig'; // Importa la instancia de axios configurada
- 
 
-// Helper para formatear moneda
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -16,49 +14,46 @@ const formatCurrency = (value) => {
 function EstimatePage() {
   const { projectId } = useParams();
   
-  // Estados de datos
   const [estimates, setEstimates] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Estados de UI
   const [selectedId, setSelectedId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('new');
   
-  // Estados de Importación/Exportación
   const [importError, setImportError] = useState(null);
   const [importSuccess, setImportSuccess] = useState(null);
   const fileInputRef = useRef(null);
   
-  // Estados de Filtros
   const [filterContractorId, setFilterContractorId] = useState('all');
   const [filterContractId, setFilterContractId] = useState('all');
 
   // Carga inicial de datos
-  const fetchEstimates = async () => {
+  const fetchEstimates = () => {
     setLoading(true);
-    setError(null);
-    try { // Usa la instancia 'api'
-      const response = await api.get(`/projects/${projectId}/estimates/`);
-      setEstimates(response.data);
-    } catch (err) {
-      setError(err.response?.data?.detail || err.message);
-    } finally {
-      setLoading(false);
-    }
+    setError(null);  
+    // Ahora usamos el endpoint correcto y eficiente que creamos en el backend
+    api.get(`/projects/${projectId}/estimates/`)
+      .then(res => {
+        setEstimates(res.data); // Ya no necesitamos filtrar aquí
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.response?.data?.detail || err.message);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
     fetchEstimates();
   }, [projectId]);
 
-  // --- Lógica de Filtros (NUEVO) ---
+  // --- Lógica de Filtros (Copiada de ContractPage, pero usa 'estimates') ---
   
   const uniqueContractors = useMemo(() => {
     const contractorMap = new Map();
     estimates.forEach(est => {
-      // Verificación de seguridad
       if (est.contract && est.contract.contractor && !contractorMap.has(est.contract.contractor.id)) {
         contractorMap.set(est.contract.contractor.id, est.contract.contractor);
       }
@@ -70,7 +65,6 @@ function EstimatePage() {
     if (filterContractorId === 'all') return [];
     const contractMap = new Map();
     estimates.forEach(est => {
-      // Verificación de seguridad
       if (est.contract && est.contract.contractor && est.contract.contractor.id == filterContractorId) {
         if (!contractMap.has(est.contract.id)) {
           contractMap.set(est.contract.id, est.contract);
@@ -81,19 +75,44 @@ function EstimatePage() {
   }, [estimates, filterContractorId]);
 
   const filteredEstimates = useMemo(() => {
-    let items = estimates;
+    // --- INICIO DE LA MODIFICACIÓN: Lógica de filtrado y ordenamiento ---
+    let items = [...estimates]; // Copiamos para no mutar el estado original
+
+    // 1. Aplicar filtros
     if (filterContractId !== 'all') {
-      // Verificación de seguridad
-      return items.filter(e => e.contract && e.contract.id == filterContractId);
+      items = items.filter(e => e.contract?.id == filterContractId);
+    } else if (filterContractorId !== 'all') {
+      items = items.filter(e => e.contract?.contractor?.id == filterContractorId);
     }
-    if (filterContractorId !== 'all') {
-      // Verificación de seguridad
-      return items.filter(e => e.contract && e.contract.contractor && e.contract.contractor.id == filterContractorId);
-    }
+
+    // 2. Aplicar ordenamiento
+    items.sort((a, b) => {
+      const contractorA = a.contract?.contractor?.razon_social || '';
+      const contractorB = b.contract?.contractor?.razon_social || '';
+      const contractNumA = a.contract?.numero_contrato || '';
+      const contractNumB = b.contract?.numero_contrato || '';
+      const estNumA = a.numero_estimacion || '';
+      const estNumB = b.numero_estimacion || '';
+
+      // Primero, por nombre de contratista
+      if (contractorA.localeCompare(contractorB) !== 0) {
+        return contractorA.localeCompare(contractorB);
+      }
+
+      // Segundo, por número de contrato (alfabético)
+      if (contractNumA.localeCompare(contractNumB) !== 0) {
+        return contractNumA.localeCompare(contractNumB);
+      }
+
+      // Tercero, por número de estimación (alfanumérico)
+      return estNumA.localeCompare(estNumB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     return items;
+    // --- FIN DE LA MODIFICACIÓN ---
   }, [estimates, filterContractorId, filterContractId]);
 
-  // --- Lógica de Totales (NUEVO) ---
+  // --- Lógica de Totales (Basada en filteredEstimates) ---
   
   const totals = useMemo(() => {
     return filteredEstimates.reduce((acc, est) => {
@@ -116,29 +135,48 @@ function EstimatePage() {
   
   const handleContractorFilterChange = (e) => {
     setFilterContractorId(e.target.value);
-    setFilterContractId('all'); // Resetea subfiltro
+    setFilterContractId('all');
   };
   
   const handleNew = () => { setModalMode('new'); setSelectedId(null); setIsModalOpen(true); };
-  const handleEdit = () => { if (!selectedId) { alert('Seleccione estimación'); return; } setModalMode('edit'); setIsModalOpen(true); };
-  const handleSave = (savedEstimate) => { fetchEstimates(); setSelectedId(savedEstimate.id); };
+  const handleEdit = () => { if (!selectedId) { alert('Seleccione una estimación para editar.'); return; } setModalMode('edit'); setIsModalOpen(true); };
+  
+  const handleSave = (savedEstimate) => {
+    // --- INICIO DE LA CORRECCIÓN: Actualización Híbrida ---
+    if (modalMode === 'new') {
+      // Para una nueva estimación, es mejor recargar todo para obtener los datos anidados.
+      fetchEstimates();
+    } else {
+      // Para una edición, actualizamos el estado localmente para ver los cambios al instante.
+      setEstimates(prevEstimates =>
+        prevEstimates.map(est => {
+          if (est.id === savedEstimate.id) {
+            // Combina los datos antiguos (con 'contract' y 'contractor') con los nuevos.
+            return { ...est, ...savedEstimate };
+          }
+          return est;
+        })
+      );
+    }
+    setSelectedId(savedEstimate.id);
+  };
 
   const handleDelete = async () => {
     if (!selectedId) { alert('Seleccione estimación'); return; }
     if (window.confirm('¿Borrar esta estimación?')) {
       try {
-        await api.delete(`/estimates/${selectedId}`); // Usa la instancia 'api'
+        await api.delete(`/estimates/${selectedId}`); // <-- 3. Usa 'api'
         setEstimates(estimates.filter(e => e.id !== selectedId));
         setSelectedId(null);
-      } catch (err) { 
-        setError(err.response?.data?.detail || err.message); 
-      }
+      } catch (err) { setError(err.message); }
     }
   };
 
-  const handleExport = () => { // Prepend api.defaults.baseURL for direct navigation
-    const url = `/projects/${projectId}/estimates/export-excel/`;
-    window.location.href = api.defaults.baseURL + url;
+  const handleExport = () => {
+    const url = `${API_URL}/projects/${projectId}/estimates/export-excel/`;
+    // (Asegúrate de que 'api.defaults.baseURL' no esté duplicado si usas 'api' aquí)
+    // window.location.href es más simple para descargas
+    window.location.href = url;
   };
 
   const triggerFileSelect = () => {
@@ -153,14 +191,12 @@ function EstimatePage() {
     formData.append('file', file);
 
     try {
-      const response = await api.post(`/projects/${projectId}/estimates/import-excel/`, formData, { // Usa la instancia 'api'
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // 4. Usa 'api.post' (ya está autenticado)
+      const response = await api.post(`/projects/${projectId}/estimates/import-excel/`, formData);
       setImportSuccess(response.data.message);
       fetchEstimates(); // Recarga la tabla
     } catch (err) {
-      const errorMsg = err.response?.data?.detail || 'Error al importar.';
-      setImportError(errorMsg);
+      setImportError(err.response?.data?.detail || "Error al importar.");
     }
     e.target.value = null;
   };
@@ -171,7 +207,6 @@ function EstimatePage() {
     <div>
       <div className="page-header">
         <h2>Estimaciones del Proyecto</h2>
-        {/* --- Botones Importar/Exportar añadidos --- */}
         <div className="page-actions">
           <button className="btn-new" onClick={handleNew}>Nueva Estimación</button>
           <button className="btn-modify" onClick={handleEdit}>Editar Estimación</button>
@@ -193,7 +228,6 @@ function EstimatePage() {
         </div>
       </div>
 
-      {/* --- Input oculto y mensajes de feedback --- */}
       <input
         type="file"
         ref={fileInputRef}
@@ -205,7 +239,7 @@ function EstimatePage() {
       {importError && <p style={{ color: 'red' }}>Error de Importación: {importError}</p>}
       {importSuccess && <p style={{ color: 'green' }}>{importSuccess}</p>}
 
-      {/* --- Filtros Añadidos --- */}
+      {/* --- Filtros --- */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
         <div className="form-group" style={{ flex: 1 }}>
           <label htmlFor="contractorFilter" style={{ fontWeight: 'bold' }}>Filtrar por Contratista:</label>
@@ -244,8 +278,10 @@ function EstimatePage() {
         <table className="data-table" style={{ minWidth: '1200px' }}>
           <thead>
             <tr>
+              {/* --- INICIO DE LA MODIFICACIÓN: Columnas reordenadas --- */}
+              <th>Contratista</th>
               <th>Contrato</th>
-              <th>Contratista</th> {/* <-- COLUMNA NUEVA --- */}
+              <th>No. Estimación</th>
               <th>Estimado</th>
               <th>Deductivas (-)</th>
               <th>Amortizado</th>
@@ -254,21 +290,22 @@ function EstimatePage() {
               <th>Total</th>
               <th>IVA</th>
               <th>Total c/IVA</th>
+              {/* --- FIN DE LA MODIFICACIÓN --- */}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan="10">Cargando...</td></tr>}
+            {loading && <tr><td colSpan="11">Cargando...</td></tr>}
             
-            {/* Usamos filteredEstimates para renderizar */}
             {filteredEstimates.map(estimate => (
               <tr 
                 key={estimate.id}
                 className={estimate.id === selectedId ? 'selected' : ''}
                 onClick={() => setSelectedId(estimate.id)}
               >
-                {/* Usamos 'optional chaining' (?) por seguridad */}
+                {/* --- INICIO DE LA MODIFICACIÓN: Celdas reordenadas --- */}
+                <td>{estimate.contract?.contractor?.razon_social}</td>
                 <td>{estimate.contract?.numero_contrato}</td>
-                <td>{estimate.contract?.contractor?.razon_social}</td> {/* <-- CELDA NUEVA --- */}
+                <td>{estimate.numero_estimacion}</td>
                 <td>{formatCurrency(estimate.estimado)}</td>
                 <td>{formatCurrency(estimate.deductiva_estimacion)}</td>
                 <td>{formatCurrency(estimate.amortizado)}</td>
@@ -277,13 +314,13 @@ function EstimatePage() {
                 <td><strong>{formatCurrency(estimate.total)}</strong></td>
                 <td>{formatCurrency(estimate.iva)}</td>
                 <td><strong>{formatCurrency(estimate.total_con_iva)}</strong></td>
+                {/* --- FIN DE LA MODIFICACIÓN --- */}
               </tr>
             ))}
           </tbody>
-          {/* --- Fila de Totales Añadida --- */}
           <tfoot>
             <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa', borderTop: '2px solid #ddd' }}>
-              <td colSpan="2" style={{ textAlign: 'right' }}>TOTALES:</td>
+              <td colSpan="3" style={{ textAlign: 'right' }}>TOTALES:</td>
               <td>{formatCurrency(totals.estimado)}</td>
               <td>{formatCurrency(totals.deductiva_estimacion)}</td>
               <td>{formatCurrency(totals.amortizado)}</td>

@@ -1,37 +1,52 @@
+// src/components/ProjectDetail.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, Outlet, useLocation } from 'react-router-dom';
 import { flattenTaskTree } from '../utils/taskUtils';
-import api from '../api/axiosConfig'; // Importa la instancia de axios configurada
- 
+import api from '../api/axiosConfig'; // <-- 1. Importa 'api'
+import { useAuth } from '../context/AuthContext'; // <-- 2. Importa 'useAuth'
 
 function ProjectDetail() {
   const { projectId } = useParams();
-  const location = useLocation();   
+  const location = useLocation(); 
+  const { user } = useAuth(); // <-- 3. Obtiene el usuario logueado
+  
   const [project, setProject] = useState(null);
   const [flatTasks, setFlatTasks] = useState([]);
   const [error, setError] = useState(null);
-  const [selectedDocumentVersionId, setSelectedDocumentVersionId] = useState(null);
-  const fetchProjectData = async () => { // Usa la instancia 'api'
-    try {
-      const response = await api.get(`/projects/${projectId}`);
-      setProject(response.data);
-      const flattened = flattenTaskTree(response.data.tasks);
-      setFlatTasks(flattened);
-    } catch (err) {
-      setError(err.response?.data?.detail || err.message);
-    }
+  // --- INICIO DE LA CORRECCIÓN ---
+  // 1. Estado para guardar el documento que se usará en el visor BIM
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  // --- FIN DE LA CORRECCIÓN ---
+  
+  // 4. Función de recarga (ahora usa 'api')
+  const fetchProjectData = () => {
+    setError(null);
+    api.get(`/projects/${projectId}`) // <-- Usa 'api'
+      .then(response => {
+        setProject(response.data); 
+        // Verifica que 'tasks' exista antes de aplanar
+        const tasks = response.data.tasks || [];
+        const flattened = flattenTaskTree(tasks);
+        setFlatTasks(flattened);
+      })
+      .catch(err => {
+        console.error("Error cargando proyecto:", err);
+        setError("Error al cargar datos del proyecto.");
+      });
   };
-  useEffect(() => { fetchProjectData(); }, [projectId]);
+  
+  useEffect(() => {
+    fetchProjectData();
+  }, [projectId]); 
+
   const handleTaskCreated = () => { fetchProjectData(); };
-  const handleDocumentSelect = (document) => {
-    if (document && document.versions && document.versions.length > 0) {      
-      const latestVersion = document.versions[document.versions.length - 1];
-      setSelectedDocumentVersionId(latestVersion.id);
-      console.log("Documento seleccionado, ID de versión:", latestVersion.id);
-    } else {
-      setSelectedDocumentVersionId(null);
-    }
-  };  
+
+  // --- INICIO DE LA CORRECCIÓN ---
+  // 2. Función que se pasará a DocumentosTabContent para actualizar el estado
+  const handleDocumentSelect = (doc) => {
+    setSelectedDocument(doc);
+  };
+  
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes('/bim')) return 'bim';
@@ -41,16 +56,27 @@ function ProjectDetail() {
     return 'tasks';
   };
   const activeTab = getActiveTab();
-  if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (!project) return <p>Cargando detalle del proyecto...</p>;
+
+  if (error) return <p style={{ color: 'red' }}>{error}</p>;
+  if (!project) return <p>Cargando...</p>; // Muestra cargando mientras 'project' es null
 
   return (
     <div>
-      <Link to="/">&larr; Volver a Proyectos</Link>      
+      {/* Botón para volver a la lista de proyectos */}
+      <Link 
+        to={user?.role === 'super_admin' ? '/admin' : '/projects'}
+        style={{ textDecoration: 'none', color: '#007bff', fontWeight: 'bold' }}
+      >
+        &larr; Volver
+      </Link> 
+      
       <h1>{project.name}</h1>
-      <p>{project.description}</p>      
+      <p>{project.description}</p>
+      
+      {/* --- 5. EL MENÚ DE PESTAÑAS --- */}
       <div className="tab-navigation">
-        <Link to={`/projects/${projectId}/tasks`}
+        <Link 
+          to={`/projects/${projectId}/tasks`}
           className={`tab-button ${activeTab === 'tasks' ? 'active' : ''}`}
         >
           Tareas
@@ -61,31 +87,37 @@ function ProjectDetail() {
         >
           Diagrama de Gantt
         </Link>
-        <Link to={`/projects/${projectId}/budget`}
+        <Link 
+          to={`/projects/${projectId}/budget`}
           className={`tab-button ${activeTab === 'budget' ? 'active' : ''}`}
         >
           Control Presupuestal
         </Link>
-
-        <Link to={`/projects/${projectId}/documents`}
+        <Link 
+          to={`/projects/${projectId}/documents`}
           className={`tab-button ${activeTab === 'documents' ? 'active' : ''}`}
         >
           Documentos
         </Link>
-        <Link to={`/projects/${projectId}/bim`}
+        <Link 
+          to={`/projects/${projectId}/bim`}
           className={`tab-button ${activeTab === 'bim' ? 'active' : ''}`}
         >
           Visor BIM
-        </Link>   
+        </Link>
       </div>
 
       <div className="tab-content">
+        {/* 6. Pasa el 'user' al contexto del Outlet */}
         <Outlet context={{ 
           project, 
           flatTasks, 
+          user, // Pasa el objeto 'user'
           onTaskCreated: handleTaskCreated,
           refetchProject: fetchProjectData,
-          selectedDocumentVersionId: selectedDocumentVersionId,
+          setProject: setProject,
+          // 3. Pasamos el estado y la función al contexto
+          selectedDocument: selectedDocument,
           onDocumentSelect: handleDocumentSelect
         }} />
       </div>

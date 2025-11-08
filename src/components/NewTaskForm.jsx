@@ -1,19 +1,34 @@
+// src/components/NewTaskForm.jsx
 import React, { useState } from 'react';
+import api from '../api/axiosConfig'; // <-- 1. Importa 'api'
 
-const API_URL = 'http://127.0.0.1:8000';
-
-// Recibe el ID del proyecto, la lista plana de tareas, y la función callback
-function NewTaskForm({ projectId, flatTasks, onTaskCreated }) {
-  // Estados para los campos
-  const [priority, setPriority] = useState(2);
+// Recibe props para modo edición: mode, initialData
+function NewTaskForm({ mode, initialData, projectId, flatTasks, companyUsers, onClose, onSave }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [parentId, setParentId] = useState(''); // El ID del padre seleccionado
+  const [parentId, setParentId] = useState('');
+  const [priority, setPriority] = useState(2);
+  const [responsibleUserId, setResponsibleUserId] = useState(''); // <-- 3. Estado para el responsable
+  
   const [error, setError] = useState(null);
 
-  // Función para formatear las fechas (la API espera YYYY-MM-DD)
+  React.useEffect(() => {
+    if (mode === 'edit' && initialData) {
+      setName(initialData.name || '');
+      setDescription(initialData.description || '');
+      setStartDate(formatDate(initialData.start_date));
+      setEndDate(formatDate(initialData.end_date));
+      setParentId(initialData.parent_id || '');
+      setPriority(initialData.priority || 2);
+      setResponsibleUserId(initialData.responsible_user_id || '');
+    } else {
+      // Resetea para el modo 'new'
+      setName(''); setDescription(''); setStartDate(''); setEndDate('');
+      setParentId(''); setPriority(2); setResponsibleUserId('');
+    }
+  }, [mode, initialData]);
   const formatDate = (dateString) => {
     if (!dateString) return null;
     return new Date(dateString).toISOString().split('T')[0];
@@ -23,6 +38,7 @@ function NewTaskForm({ projectId, flatTasks, onTaskCreated }) {
     e.preventDefault();
     setError(null);
 
+    // 4. Validación de fechas
     if (!name || !startDate || !endDate) {
       setError('Nombre, Fecha de Inicio y Fecha de Fin son obligatorios.');
       return;
@@ -30,126 +46,104 @@ function NewTaskForm({ projectId, flatTasks, onTaskCreated }) {
 
     const taskData = {
       name,
-      description,
+      description: description || null,
       start_date: formatDate(startDate),
-      end_date: formatDate(endDate),  
+      end_date: formatDate(endDate),
       parent_id: parentId ? parseInt(parentId, 10) : null,
       priority: parseInt(priority, 10),
+      // 5. Envía el ID del usuario responsable
+      responsible_user_id: responsibleUserId ? parseInt(responsibleUserId, 10) : null,
     };
 
-    try {      
-      const response = await fetch(`${API_URL}/projects/${projectId}/tasks/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskData),
-      });
+    const isNew = mode === 'new';
+    const url = isNew ? `/projects/${projectId}/tasks/` : `/tasks/${initialData.id}/`;
+    const method = isNew ? 'post' : 'put';
 
-      if (!response.ok) {
-        throw new Error('No se pudo crear la tarea.');
-      }
-
-      const createdTask = await response.json();
-
-      setName('');
-      setDescription('');
-      setStartDate('');
-      setEndDate('');
-      setParentId('');
-      setPriority(2); 
-      onTaskCreated(createdTask);
-
-      onTaskCreated(createdTask);
+    try {
+      const response = await api[method](url, taskData);
+      
+      onSave(response.data);
+      onClose();
+      
     } catch (err) {
-      setError(err.message);
+      if (err.response && err.response.data && err.response.data.detail) {
+        // Muestra el 404 o 401 que viene del backend
+        setError(err.response.data.detail); 
+      } else {
+        setError("Error al crear la tarea.");
+      }
     }
   };
 
   return (
-    <div className="task-form-container">
-      <h3>Añadir Nueva Tarea</h3>
-      <form onSubmit={handleSubmit} className="task-form">
-        
-        {error && (
-          <p style={{ color: 'red', gridColumn: '1 / -1' }}>{error}</p>
-        )}
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" style={{maxWidth: '700px'}} onClick={(e) => e.stopPropagation()}>
+        <h3>Añadir Nueva Tarea</h3>
+        <form onSubmit={handleSubmit} className="task-form">
+          
+          {error && (
+            <p style={{ color: 'red', gridColumn: '1 / -1' }}>{error}</p>
+          )}
 
-        <div className="form-group full-width">
-          <label htmlFor="taskName">Nombre Tarea:</label>
-          <input
-            type="text"
-            id="taskName"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
+          <div className="form-group full-width">
+            <label htmlFor="taskName">Nombre Tarea:</label>
+            <input type="text" id="taskName" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="taskStart">Fecha Inicio:</label>
-          <input
-            type="date"
-            id="taskStart"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
+          <div className="form-group">
+            <label htmlFor="taskStart">Fecha Inicio:</label>
+            <input type="date" id="taskStart" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="taskEnd">Fecha Fin:</label>
-          <input
-            type="date"
-            id="taskEnd"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
+          <div className="form-group">
+            <label htmlFor="taskEnd">Fecha Fin:</label>
+            <input type="date" id="taskEnd" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
 
-        <div className="form-group full-width">
-          <label htmlFor="taskParent">Tarea Padre (Opcional):</label>
-          <select
-            id="taskParent"
-            value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
-          >
-            {/* La primera opción es "Ninguna" (tarea raíz) */}
-            <option value="">-- Ninguna (Tarea Raíz) --</option>
-            
-            {/* Mapeamos la lista plana de tareas */}
-            {flatTasks.map(task => (
-              <option key={task.id} value={task.id}>
-                {task.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className="form-group">
+            <label htmlFor="taskPriority">Prioridad:</label>
+            <select id="taskPriority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+              <option value={3}>Alta</option>
+              <option value={2}>Media</option>
+              <option value={1}>Baja</option>
+            </select>
+          </div>
+          
+          {/* --- 7. CAMPO "USUARIO RESPONSABLE" --- */}
+          <div className="form-group">
+            <label htmlFor="taskUser">Usuario Responsable (Opcional):</label>
+            <select id="taskUser" value={responsibleUserId} onChange={(e) => setResponsibleUserId(e.target.value)}>
+              <option value="">-- Ninguno --</option>
+              {/* 8. Mapea la lista de 'companyUsers' */}
+              {companyUsers.map(user => (
+                <option key={user.id} value={user.id}>
+                  {user.email}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="form-group full-width">
-          <label htmlFor="taskDesc">Descripción:</label>
-          <textarea
-            id="taskDesc"
-            rows="3"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        
-        <div className="form-actions">
-          <button type="submit" className="btn-save">Guardar Tarea</button>
-        </div>
-        
-        <div className="form-group">
-          <label htmlFor="taskPriority">Prioridad:</label>
-          <select
-            id="taskPriority"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-          >
-            <option value={3}>Alta</option>
-            <option value={2}>Media</option>
-            <option value={1}>Baja</option>
-          </select>
-        </div>
+          <div className="form-group full-width">
+            <label htmlFor="taskParent">Tarea Padre (Opcional):</label>
+            <select id="taskParent" value={parentId} onChange={(e) => setParentId(e.target.value)}>
+              <option value="">-- Ninguna (Tarea Raíz) --</option>
+              {flatTasks.map(task => (
+                <option key={task.id} value={task.id}>{task.name}</option>
+              ))}
+            </select>
+          </div>
 
-      </form>
+          <div className="form-group full-width">
+            <label htmlFor="taskDesc">Descripción:</label>
+            <textarea id="taskDesc" rows="3" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          
+          <div className="form-actions" style={{ marginTop: '1rem' }}>
+            <button type="button" className="btn-cancel" onClick={onClose} style={{ marginRight: '0.5rem' }}>Cancelar</button>
+            <button type="submit" className="btn-save">Guardar Tarea</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

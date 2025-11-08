@@ -114,7 +114,8 @@ function DocumentosTabContent() {
   };
   
   const handleUploadSuccess = () => {
-    handleRefreshAll();
+    // Llama a refetchProject para recargar todo el estado del proyecto, incluyendo las versiones.
+    refetchProject();
     setIsUploadModalOpen(false);
   };
 

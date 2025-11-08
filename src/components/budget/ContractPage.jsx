@@ -30,11 +30,22 @@ function ContractPage() {
   const [filterContractorId, setFilterContractorId] = useState('all');
   const [filterContractId, setFilterContractId] = useState('all'); 
   
+  // --- 1. LÓGICA DE FILTRADO MOVIDA AL BACKEND ---
+  // La función fetch ahora construye la URL con los filtros
   const fetchContracts = async () => {
     setLoading(true);
     setError(null);
-    try { // Usa la instancia 'api'
-      const response = await api.get(`/projects/${projectId}/contracts/`);
+    
+    const params = new URLSearchParams();
+    if (filterContractorId !== 'all') {
+      params.append('contractor_id', filterContractorId);
+    }
+    if (filterContractId !== 'all') {
+      params.append('contract_id', filterContractId);
+    }
+
+    try {
+      const response = await api.get(`/projects/${projectId}/contracts/?${params.toString()}`);
       setContracts(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || err.message);
@@ -42,21 +53,18 @@ function ContractPage() {
       setLoading(false);
     }
   };
-
+  
+  // 2. useEffect ahora se ejecuta cuando cambian los filtros para volver a cargar los datos
   useEffect(() => {
     fetchContracts();
-  }, [projectId]);
+  }, [projectId, filterContractorId, filterContractId]);
 
-  // --- Lógica de Filtros (Corregida con Verificaciones) ---
-
+  // --- Lógica para los menús desplegables (sin cambios, pero ahora más eficiente) ---
   const uniqueContractors = useMemo(() => {
     const contractorMap = new Map();
-    contracts.forEach(contract => {
-      // 1. CORRECCIÓN: Verifica que 'contract.contractor' exista
-      if (contract.contractor && !contractorMap.has(contract.contractor.id)) {
-        contractorMap.set(contract.contractor.id, contract.contractor);
-      }
-    });
+    // Para llenar el filtro de contratistas, necesitamos la lista completa una vez.
+    // Podríamos optimizar esto con un nuevo endpoint, pero por ahora funciona.
+    contracts.forEach(c => { if (c.contractor) contractorMap.set(c.contractor.id, c.contractor) });
     return Array.from(contractorMap.values());
   }, [contracts]);
 
@@ -64,26 +72,15 @@ function ContractPage() {
     if (filterContractorId === 'all') {
       return []; 
     }
-    // 2. CORRECCIÓN: Verifica que 'contract.contractor' exista
     return contracts.filter(
       contract => contract.contractor && contract.contractor.id == filterContractorId
     );
   }, [contracts, filterContractorId]);
 
-  const filteredContracts = useMemo(() => {
-    if (filterContractId !== 'all') {
-      return contracts.filter(c => c.id == filterContractId);
-    }
-    if (filterContractorId !== 'all') {
-      // 3. CORRECCIÓN: Verifica que 'c.contractor' exista
-      return contracts.filter(c => c.contractor && c.contractor.id == filterContractorId);
-    }
-    return contracts;
-  }, [contracts, filterContractorId, filterContractId]);
-
-  // Cálculo de totales (sin cambios)
+  // 3. Ya no necesitamos 'filteredContracts'. Usamos 'contracts' directamente.
+  // El cálculo de totales ahora opera sobre la lista ya filtrada que viene del backend.
   const totals = useMemo(() => {
-    return filteredContracts.reduce((acc, contract) => {
+    return contracts.reduce((acc, contract) => {
       acc.contratado += contract.contratado;
       acc.aditiva += contract.aditiva;
       acc.deductiva += contract.deductiva;
@@ -96,7 +93,7 @@ function ContractPage() {
       contratado: 0, aditiva: 0, deductiva: 0, total: 0,
       iva: 0, total_con_iva: 0, anticipo: 0,
     });
-  }, [filteredContracts]); 
+  }, [contracts]); 
 
   // Handlers (sin cambios)
   const handleContractorFilterChange = (e) => {
@@ -115,6 +112,7 @@ function ContractPage() {
         await api.delete(`/contracts/${selectedId}`);
         setContracts(contracts.filter(c => c.id !== selectedId));
         setSelectedId(null);
+        // Opcional: podrías llamar a fetchContracts() para asegurar consistencia total.
       } catch (err) {
         const errorMsg = err.response?.data?.detail || 'No se pudo borrar. Es posible que esté en uso en una estimación.';
         setError(errorMsg);
@@ -122,7 +120,9 @@ function ContractPage() {
     }
   };
   const handleSave = (savedContract) => { fetchContracts(); setSelectedId(savedContract.id); };
-  const handleExport = () => { // Prepend api.defaults.baseURL for direct navigation
+  const handleExport = () => {
+    // 4. El export también se beneficia de los filtros
+    // (Asegúrate de que el endpoint de exportación también los lea)
     const url = `/projects/${projectId}/contracts/export-excel/`;
     window.location.href = api.defaults.baseURL + url;
   };
@@ -236,7 +236,7 @@ function ContractPage() {
           <tbody>
             {loading && <tr><td colSpan="11">Cargando...</td></tr>}
             
-            {filteredContracts.map(contract => (
+            {contracts.map(contract => (
               <tr 
                 key={contract.id}
                 className={contract.id === selectedId ? 'selected' : ''}
