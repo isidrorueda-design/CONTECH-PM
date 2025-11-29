@@ -3,17 +3,15 @@ import React, { useState } from 'react';
 const API_URL = 'http://127.0.0.1:8000';
 
 function NewEstimateForm({ projectId, contracts, onEstimateAdded }) {
-  // Estados
+
   const [contractId, setContractId] = useState('');
   const [estimado, setEstimado] = useState(0);
   const [deductiva, setDeductiva] = useState(0);
   const [amortizado, setAmortizado] = useState(0);
   const [fondoGarantia, setFondoGarantia] = useState(0);
-  const [retenciones, setRetenciones] = useState(0);
-  
+  const [retenciones, setRetenciones] = useState(0);  
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!contractId) {
@@ -40,13 +38,10 @@ function NewEstimateForm({ projectId, contracts, onEstimateAdded }) {
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.detail || 'No se pudo crear la estimación.');
-      }
-      
+      }      
       const newEstimate = await response.json();
       setSuccess(`Estimación creada para el contrato ${newEstimate.contract.numero_contrato}.`);
       onEstimateAdded(newEstimate);
-
-      // Limpiar formulario
       setContractId(''); setEstimado(0); setDeductiva(0); setAmortizado(0); setFondoGarantia(0); setRetenciones(0);
 
     } catch (err) {
@@ -59,8 +54,7 @@ function NewEstimateForm({ projectId, contracts, onEstimateAdded }) {
       <h3>Crear Nueva Estimación</h3>
       <form onSubmit={handleSubmit} className="card-form">
         {error && <p style={{ color: 'red' }}>{error}</p>}
-        {success && <p style={{ color: 'green' }}>{success}</p>}
-        
+        {success && <p style={{ color: 'green' }}>{success}</p>}        
         <div className="form-group">
           <label>Contrato (Tabla 3):</label>
           <select value={contractId} onChange={(e) => setContractId(e.target.value)}>
@@ -71,8 +65,7 @@ function NewEstimateForm({ projectId, contracts, onEstimateAdded }) {
               </option>
             ))}
           </select>
-        </div>
-        
+        </div>        
         <div className="form-group">
           <label>Monto Estimado ($):</label>
           <input type="number" value={estimado} onChange={(e) => setEstimado(e.target.value)} />
@@ -92,8 +85,7 @@ function NewEstimateForm({ projectId, contracts, onEstimateAdded }) {
         <div className="form-group">
           <label>Retenciones ($):</label>
           <input type="number" value={retenciones} onChange={(e) => setRetenciones(e.target.value)} />
-        </div>
-        
+        </div>        
         <div className="form-actions">
           <button type="submit" className="btn-save">Guardar Estimación</button>
         </div>

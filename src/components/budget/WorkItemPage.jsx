@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import WorkItemModal from './WorkItemModal';
-
-import api from '../../api/axiosConfig'; // 1. Importar axios
-const formatCurrency = (value) => { // (Esta función está bien)
+import api from '../../api/axiosConfig';
+const formatCurrency = (value) => {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
@@ -11,28 +10,23 @@ const formatCurrency = (value) => { // (Esta función está bien)
 };
 
 function WorkItemPage() {
-  const { projectId } = useParams();
-  
+  const { projectId } = useParams();  
   const [workItems, setWorkItems] = useState([]);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-  
+  const [loading, setLoading] = useState(true);  
   const [selectedId, setSelectedId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('new');
-  
-  // --- 1. NUEVO ESTADO PARA EL TOTAL ---
+  const [modalMode, setModalMode] = useState('new');  
   const [totalPresupuestoBase, setTotalPresupuestoBase] = useState(0);
-
   const fetchWorkItems = () => {
     setLoading(true);
     api.get(`/projects/${projectId}/work_items/`) // 2. Usar api.get
       .then(response => {
         const data = response.data;
-        setWorkItems(data);
-        
-        // --- 2. CALCULAR EL TOTAL ---
-        // Sumamos el presupuesto base de todas las partidas
+        const sortedData = data.sort((a, b) => 
+          a.item_code.localeCompare(b.item_code, undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setWorkItems(sortedData);
         const total = data.reduce((acc, item) => acc + item.presupuesto_base, 0);
         setTotalPresupuestoBase(total);
       })
@@ -59,14 +53,11 @@ function WorkItemPage() {
       } catch (err) { setError(err.message); }
     }
   };
-
   const handleSave = (savedItem) => {
     fetchWorkItems(); 
     setSelectedId(savedItem.id);
   };
-
   const selectedWorkItem = workItems.find(w => w.id === selectedId);
-
   return (
     <div>
       <div className="page-header">
@@ -98,13 +89,11 @@ function WorkItemPage() {
             {loading && <tr><td colSpan="6">Cargando...</td></tr>}
             
             {workItems.map(item => {
-              // --- 5. CÁLCULO DEL PESO % ---
               const pesoPorcentaje = (totalPresupuestoBase > 0)
                 ? (item.presupuesto_base / totalPresupuestoBase) * 100
                 : 0;
               
               const diffStyle = item.diferencia_costo < 0 ? { color: 'red', fontWeight: 'bold' } : {};
-
               return (
                 <tr 
                   key={item.id}

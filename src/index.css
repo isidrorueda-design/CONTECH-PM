@@ -483,6 +483,10 @@ ul {
 .folder-content-list li:hover {
   background-color: #f9f9f9;
 }
+.folder-content-list li.selected {
+  background-color: #cce5ff; /* Mismo color que en las otras tablas */
+  font-weight: bold;
+}
 .folder-content-list li .icon {
   margin-right: 10px;
   font-size: 1.2rem;

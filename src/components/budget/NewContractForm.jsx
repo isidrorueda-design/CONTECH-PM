@@ -9,14 +9,11 @@ function NewContractForm({ projectId, contractors, workItems, onContractAdded })
   const [numeroContrato, setNumeroContrato] = useState('');
   const [trabajos, setTrabajos] = useState('');
   const [contratado, setContratado] = useState(0);
-  const [aditiva, setAditiva] = useState(0);
   const [deductiva, setDeductiva] = useState(0);
   const [anticipo, setAnticipo] = useState(0);
-  const [aplicaIva, setAplicaIva] = useState(true);
-  
+  const [aplicaIva, setAplicaIva] = useState(true);  
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -31,7 +28,6 @@ function NewContractForm({ projectId, contractors, workItems, onContractAdded })
       numero_contrato: numeroContrato,
       trabajos,
       contratado: parseFloat(contratado),
-      aditiva: parseFloat(aditiva),
       deductiva: parseFloat(deductiva),
       anticipo: parseFloat(anticipo),
       aplica_iva: aplicaIva,
@@ -105,10 +101,7 @@ function NewContractForm({ projectId, contractors, workItems, onContractAdded })
           <label>Monto Contratado ($):</label>
           <input type="number" value={contratado} onChange={(e) => setContratado(e.target.value)} />
         </div>
-        <div className="form-group">
-          <label>Aditiva ($):</label>
-          <input type="number" value={aditiva} onChange={(e) => setAditiva(e.target.value)} />
-        </div>
+       
         <div className="form-group">
           <label>Deductiva ($):</label>
           <input type="number" value={deductiva} onChange={(e) => setDeductiva(e.target.value)} />

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-
-const API_URL = 'http://127.0.0.1:8000';
+import api from '../../api/axiosConfig'; // <-- 1. Importa la instancia de 'api'
 
 function NewWorkItemForm({ projectId, onWorkItemAdded }) {
   const [itemCode, setItemCode] = useState('');
@@ -22,20 +21,12 @@ function NewWorkItemForm({ projectId, onWorkItemAdded }) {
     const itemData = { item_code: itemCode, description, unit };
 
     try {
-      const response = await fetch(`${API_URL}/projects/${projectId}/work_items/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemData),
-      });
+      // 2. Usa 'api.post' (ya está autenticado y tiene la URL base)
+      const response = await api.post(`/projects/${projectId}/work_items/`, itemData);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'No se pudo crear la partida.');
-      }
-
-      const newItem = await response.json();
-      setSuccess(`Partida "${newItem.item_code}" creada.`);
-      onWorkItemAdded(newItem); // Avisa al padre
+      // 3. Axios pone la respuesta en 'response.data'
+      setSuccess(`Partida "${response.data.item_code}" creada.`);
+      onWorkItemAdded(response.data); // Avisa al padre
 
       // Limpiar formulario
       setItemCode('');

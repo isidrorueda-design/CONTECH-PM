@@ -33,7 +33,7 @@ function NewDocumentModal({ folderId, onDocumentUploaded, onClose }) { // The pr
         },
       });
 
-      onDocumentUploaded(response.data); // Make sure this function is called.
+      onDocumentUploaded(response.data);
       onClose(); // Cierra el modal
 
     } catch (err) {

@@ -1,152 +1,132 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom'; // Importa useParams
+// src/components/budget/ContractorPage.jsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import api from '../../api/axiosConfig';
 import ContractorModal from './ContractorModal';
+import NewContractorForm from './NewContractorForm';
 
-import api from '../../api/axiosConfig'; // Importa la instancia de axios configurada
- 
+const formatCurrency = (val) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val || 0);
+
 function ContractorPage() {
-  // Estados de la página
+  const { projectId } = useParams();
   const [contractors, setContractors] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // (useParams no se usa aquí, pero se usará en las otras páginas)
-  // const { projectId } = useParams(); 
-  
-  // Estados de la UI (modal y selección)
-  const [selectedId, setSelectedId] = useState(null); 
+  const [editingContractor, setEditingContractor] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('new'); 
-  
-  // Estados para la importación de Excel
   const [importError, setImportError] = useState(null);
   const [importSuccess, setImportSuccess] = useState(null);
-  const fileInputRef = useRef(null); // Referencia para el input de archivo
-
-  // Función para cargar los datos de la tabla
-  const fetchContractors = async () => {
+  const [selectedContractorId, setSelectedContractorId] = useState(null);
+  const fileInputRef = useRef(null);
+  const fetchContractors = useCallback(() => {
     setLoading(true);
-    setError(null); // Limpia errores antiguos
-    try { // Usa la instancia 'api'
-      const response = await api.get('/contractors/');
-      setContractors(response.data);
-    } catch (err) {
-      setError(err.response?.data?.detail || err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Carga inicial al montar el componente
-  useEffect(() => {
-    fetchContractors();
+    setError(null);
+    api.get('/contractors/')
+      .then(response => {
+        setContractors(response.data);
+      })
+      .catch(err => {
+        setError(err.response?.data?.detail || "Error al cargar contratistas.");
+        setContractors([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  // --- Handlers de Botones de la Barra Superior ---
+  useEffect(() => {
+    fetchContractors();
+  }, [fetchContractors]);
 
-  const handleNew = () => {
-    setModalMode('new');
-    setSelectedId(null); 
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = () => {
-    if (!selectedId) {
-      alert('Por favor, seleccione un contratista de la tabla para editar.');
-      return;
-    }
-    setModalMode('edit');
-    setIsModalOpen(true);
+  const handleCreated = () => fetchContractors();
+  const handleUpdated = () => {
+    fetchContractors();
+    setEditingContractor(null);
+    setSelectedContractorId(null);
   };
 
   const handleDelete = async () => {
-    if (!selectedId) {
-      alert('Por favor, seleccione un contratista de la tabla para borrar.');
-      return;
-    }
-    
-    if (window.confirm('¿Está seguro de que quiere borrar este contratista?')) {
+    if (!selectedContractorId) return;
+    if (window.confirm('¿Eliminar Contratista seleccionado?')) {
       try {
-        await api.delete(`/contractors/${selectedId}`); // Usa la instancia 'api'
-        // Actualiza la lista en el frontend
-        setContractors(contractors.filter(c => c.id !== selectedId));
-        setSelectedId(null); // Limpia selección
+        await api.delete(`/contractors/${selectedContractorId}`);
+        fetchContractors();
+        setSelectedContractorId(null);
       } catch (err) {
-        const errorMsg = err.response?.data?.detail || 'No se pudo borrar. Es posible que esté en uso en un contrato.';
-        setError(errorMsg);
+        setError(err.response?.data?.detail || "Error al eliminar.");
       }
     }
   };
 
-  // --- Handler del Modal (cuando se guarda) ---
-
-  const handleSave = (savedContractor) => {
-    if (modalMode === 'new') {
-      // Añade el nuevo a la lista
-      setContractors([...contractors, savedContractor]);
-    } else {
-      // Reemplaza el editado en la lista
-      setContractors(contractors.map(c => 
-        c.id === savedContractor.id ? savedContractor : c
-      ));
+  const handleEditClick = () => {
+    const contractorToEdit = contractors.find(c => c.id === selectedContractorId);
+    if (contractorToEdit) {
+      setEditingContractor(contractorToEdit);
     }
-    setSelectedId(savedContractor.id); // Selecciona el ítem guardado
   };
 
-  // --- Handlers de Importación de Excel ---
-
-  // 1. Esta función es llamada por el botón "Importar"
   const triggerFileSelect = () => {
-    // Da clic programáticamente al input oculto
-    fileInputRef.current.click();
+    const message = "El archivo Excel debe tener una fila de encabezado con las siguientes columnas:\n\n'razon_social', 'responsable', 'telefono', 'correo_electronico'\n\n- Solo 'razon_social' es obligatoria.";
+    if (window.confirm(message)) {
+      fileInputRef.current.click();
+    }
   };
 
-  // 2. Esta función se dispara cuando el usuario selecciona un archivo
   const handleFileImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setImportError(null);
     setImportSuccess(null);
-
-    // Usamos FormData para enviar archivos
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await api.post('/contractors/import-excel/', formData, { // Usa la instancia 'api'
+      const response = await api.post('/contractors/import-excel/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      setImportSuccess(response.data.message); // Muestra el mensaje de éxito
-      fetchContractors(); // ¡Refresca la tabla!
-
+      setImportSuccess(response.data.message);
+      fetchContractors();
     } catch (err) {
-      const errorMsg = err.response?.data?.detail || 'Error al importar el archivo.';
-      setImportError(errorMsg);
+      setImportError(err.response?.data?.detail || 'Error al importar el archivo.');
     }
-    
-    // Limpia el input para que se pueda subir el mismo archivo otra vez
     e.target.value = null;
   };
 
-  // Busca el contratista seleccionado para pasarlo al modal
-  const selectedContractor = contractors.find(c => c.id === selectedId);
+  const handleRowClick = (id) => {
+    if (selectedContractorId === id) {
+      setSelectedContractorId(null);
+    } else {
+      setSelectedContractorId(id);
+    }
+  };
 
-  // --- Renderizado del Componente ---
+  const selectedContractor = editingContractor;
+
   return (
     <div>
       <div className="page-header">
         <h2>Directorio de Contratistas</h2>
         <div className="page-actions">
-          <button className="btn-new" onClick={handleNew}>Nuevo</button>
-          <button className="btn-modify" onClick={handleEdit}>Editar</button>
-          <button className="btn-delete" onClick={handleDelete}>Borrar</button>
-          
-          {/* Botón de Importar que llama al input oculto */}
-          <button 
-            className="btn-import" 
-            style={{backgroundColor: '#17a2b8', color: 'white'}}
+          <button
+            className="btn-modify"
+            onClick={handleEditClick}
+            disabled={!selectedContractorId}
+            style={{ opacity: !selectedContractorId ? 0.5 : 1, cursor: !selectedContractorId ? 'not-allowed' : 'pointer' }}
+          >
+            Modificar
+          </button>
+          <button
+            className="btn-delete"
+            onClick={handleDelete}
+            disabled={!selectedContractorId}
+            style={{ opacity: !selectedContractorId ? 0.5 : 1, cursor: !selectedContractorId ? 'not-allowed' : 'pointer' }}
+          >
+            Borrar
+          </button>
+          <button className="btn-new" onClick={() => setIsModalOpen(true)}>Nuevo Contratista</button>
+          <button
+            className="btn-import"
+            style={{ backgroundColor: '#17a2b8', color: 'white' }}
             onClick={triggerFileSelect}
           >
             Importar
@@ -154,54 +134,67 @@ function ContractorPage() {
         </div>
       </div>
 
-      {/* Input de archivo real, oculto */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileImport}
-        style={{ display: 'none' }} 
-        accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      />
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {/* Mensajes de feedback */}
-      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-      {importError && <p style={{ color: 'red' }}>Error de Importación: {importError}</p>}
-      {importSuccess && <p style={{ color: 'green' }}>{importSuccess}</p>}
-          
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Razón Social</th>
-            <th>Responsable</th>
-            <th>Teléfono</th>
-            <th>Correo Electrónico</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading && <tr><td colSpan="4">Cargando...</td></tr>}
-          
-          {contractors.map(contractor => (
-            <tr 
-              key={contractor.id}
-              className={contractor.id === selectedId ? 'selected' : ''}
-              onClick={() => setSelectedId(contractor.id)}
-            >
-              <td>{contractor.razon_social}</td>
-              <td>{contractor.responsable}</td>
-              <td>{contractor.telefono}</td>
-              <td>{contractor.correo_electronico}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* 3. Renderizado Condicional */}
+      {loading ? (
+        <p>Cargando lista...</p>
+      ) : (
+        <>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileImport}
+            style={{ display: 'none' }}
+            accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          />
+          {importError && <p style={{ color: 'red' }}>Error de Importación: {importError}</p>}
+          {importSuccess && <p style={{ color: 'green' }}>{importSuccess}</p>}
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Razón Social</th>
+                <th>Responsable</th>
+                <th>Teléfono</th>
+                <th>Correo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contractors.length === 0 && <tr><td colSpan="4">No hay contratistas registrados.</td></tr>}
+              {contractors.map(c => (
+                <tr
+                  key={c.id}
+                  onClick={() => handleRowClick(c.id)}
+                  style={{
+                    cursor: 'pointer',
+                    backgroundColor: selectedContractorId === c.id ? '#e2e6ea' : 'transparent'
+                  }}
+                >
+                  <td>{c.razon_social}</td>
+                  <td>{c.responsable}</td>
+                  <td>{c.telefono}</td>
+                  <td>{c.correo_electronico}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
 
-      {/* --- El Modal --- */}
+      {/* Modal de Creación/Edición */}
       {isModalOpen && (
         <ContractorModal
-          mode={modalMode}
-          initialData={selectedContractor}
+          mode="new"
           onClose={() => setIsModalOpen(false)}
-          onSave={handleSave}
+          onSave={handleCreated}
+        />
+      )}
+      {selectedContractor && (
+        <ContractorModal
+          mode="edit"
+          initialData={selectedContractor}
+          onClose={() => setEditingContractor(null)}
+          onSave={handleUpdated}
         />
       )}
     </div>

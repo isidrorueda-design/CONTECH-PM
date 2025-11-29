@@ -10,7 +10,14 @@ function buildFolderTree(folders) {
   const map = {};
   const roots = [];
 
-  if (!folders) return roots; 
+  if (!folders) return roots;
+  // --- INICIO DE LA CORRECCIÓN: Asegurar que la carpeta raíz sea seleccionable ---
+  // Si no hay carpetas, no hay nada que hacer.
+  if (folders.length === 0) {
+    return [];
+  }
+  // --- FIN DE LA CORRECCIÓN ---
+
   folders.forEach(folder => {
     map[folder.id] = { ...folder, subfolders: [] };
   });
@@ -27,63 +34,26 @@ function buildFolderTree(folders) {
 }
 
 function DocumentosTabContent() {
-  const { project, refetchProject, onDocumentSelect } = useOutletContext();
+  const { project, refetchProject, onDocumentSelect, selectedFolderId, onFolderSelect, folderContents, isLoadingFolder } = useOutletContext();
+
   const { projectId } = useParams();
   const navigate = useNavigate();
-  
-  // Estados de Modales
-  const [folderModalMode, setFolderModalMode] = useState(null); // 'new' o 'rename'
+  const [folderModalMode, setFolderModalMode] = useState(null); 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); 
+  const [selectedDocId, setSelectedDocId] = useState(null);
 
-  // Estados de Navegación
-  const [selectedFolderId, setSelectedFolderId] = useState(null);
-  const [folderContents, setFolderContents] = useState(null);
-  const [loadingContents, setLoadingContents] = useState(false);
-  const [error, setError] = useState(null);
-
-  // Construye el árbol
   const folderTree = useMemo(() => {
     return buildFolderTree(project?.folders);
   }, [project?.folders]);
 
-  // Carga el contenido de la carpeta seleccionada
   useEffect(() => {
-    const fetchFolderContents = async () => {
-      setLoadingContents(true);
-      setError(null);
-      try { // Usa la instancia 'api'
-        const response = await api.get(`/folders/${selectedFolderId}`);
-        setFolderContents(response.data);
-      } catch (err) {
-        console.error("Error cargando contenido de carpeta:", err);
-        setError("No se pudo cargar el contenido de la carpeta.");
-      } finally {
-        setLoadingContents(false);
-      }
-    };
-
-    if (selectedFolderId) {
-      fetchFolderContents();
-    } else {
-      setFolderContents(null);
-    }
+    setSelectedDocId(null);
   }, [selectedFolderId]);
 
   // --- Handlers (Funciones de botones) ---
   
   const handleRefreshAll = async () => {
-    if (refetchProject) {
-      refetchProject();
-    }
-    if (selectedFolderId) {
-      // Recarga el contenido de la carpeta actual
-      try {
-        const response = await api.get(`/folders/${selectedFolderId}`); // Usa la instancia 'api'
-        setFolderContents(response.data);
-      } catch (err) {
-        console.error("Error refrescando contenido de carpeta:", err);
-      }
-    }
+    refetchProject();
   };
 
   const handleFolderSave = (savedFolder) => {
@@ -92,39 +62,67 @@ function DocumentosTabContent() {
   };
 
   const handleDelete = async () => {
-    if (!selectedFolderId || !folderContents) {
-      alert("Por favor, seleccione una carpeta.");
+    // --- INICIO DE LA CORRECCIÓN: Lógica de borrado inteligente ---
+
+    // 1. Prioriza borrar el documento si hay uno seleccionado
+    if (selectedDocId) {
+      const docToDelete = folderContents?.documents.find(d => d.id === selectedDocId);
+      if (docToDelete && window.confirm(`¿Seguro que quieres eliminar el documento "${docToDelete.name}"?`)) {
+        try {
+          await api.delete(`/documents/${selectedDocId}`);
+          handleRefreshAll(); // Recarga el contenido de la carpeta
+          setSelectedDocId(null); // Deselecciona el documento
+        } catch (err) {
+          alert(err.response?.data?.detail || 'Error al eliminar el documento.');
+        }
+      }
       return;
     }
 
-    if (window.confirm(`¿Seguro que quieres eliminar la carpeta "${folderContents.name}"? Esta acción no se puede deshacer.`)) {
-      setError(null);
-      try {
-        await api.delete(`/folders/${selectedFolderId}`); // Usa la instancia 'api'
-        
-        refetchProject(); // Refresca el árbol
-        setSelectedFolderId(null);
-        setFolderContents(null);
-
-      } catch (err) {
-        const errorMessage = err.response?.data?.detail || err.message || 'Error del servidor al eliminar la carpeta.';
-        setError(errorMessage);
+    // 2. Si no hay documento seleccionado, procede a borrar la carpeta
+    if (selectedFolderId) {
+      if (window.confirm(`¿Seguro que quieres eliminar la carpeta "${folderContents.name}" y todo su contenido?`)) {
+        try {
+          await api.delete(`/folders/${selectedFolderId}`);
+          refetchProject(); // Refresca todo el árbol de carpetas
+          onFolderSelect(null); // Notifica al padre que no hay carpeta seleccionada
+        } catch (err) {
+          alert(err.response?.data?.detail || 'Error al eliminar la carpeta. Asegúrate de que esté vacía.');
+        }
       }
+      return;
     }
+    // --- FIN DE LA CORRECCIÓN ---
   };
   
   const handleUploadSuccess = () => {
-    // Llama a refetchProject para recargar todo el estado del proyecto, incluyendo las versiones.
-    refetchProject();
+    // Notifica al padre que recargue el contenido de la carpeta actual
+    onFolderSelect(selectedFolderId);
     setIsUploadModalOpen(false);
   };
 
-  const handleDocClick = (doc) => {
-    onDocumentSelect(doc);
-    if (doc.versions && doc.versions.length > 0) {
+  // --- INICIO DE LA MODIFICACIÓN: Handlers para clic y doble clic ---
+  const handleDocSelect = (doc) => {
+    setSelectedDocId(doc.id);
+    onDocumentSelect(doc); // El 'doc' de la lista ya es el completo.
+  };
+
+  const handleDocOpen = (doc) => {
+    // Usa el documento completo que ya está seleccionado
+    const fullDoc = folderContents?.documents.find(d => d.id === selectedDocId);
+
+    if (!fullDoc || !fullDoc.versions) return;
+
+    const latestVersion = fullDoc.versions?.at(-1);
+    if (!latestVersion?.file_url) {
+      alert("Este documento no tiene una versión de archivo cargada.");
+      return;
+    }
+
+    if (latestVersion.filename.toLowerCase().endsWith('.ifc')) {
       navigate(`/projects/${projectId}/bim`);
     } else {
-      alert("Este documento no tiene versiones cargadas.");
+      alert("Este tipo de archivo no se puede abrir en el visor BIM. Solo se admiten archivos .ifc.");
     }
   };
 
@@ -148,7 +146,7 @@ function DocumentosTabContent() {
         <FolderTree
           folders={folderTree} 
           selectedFolderId={selectedFolderId}
-          onFolderSelect={(id) => setSelectedFolderId(id)}
+          onFolderSelect={(id) => onFolderSelect(id)}
         />
       </aside>
       
@@ -188,18 +186,23 @@ function DocumentosTabContent() {
           )}
         </div>
         
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        {loadingContents && <p>Cargando...</p>}
+        {/* --- INICIO DE LA CORRECCIÓN: Usar el estado de carga del padre --- */}
+        {isLoadingFolder && <p>Cargando...</p>}
         
         {folderContents && (
           <ul className="folder-content-list">
-            {folderContents.subfolders.map(subfolder => (
-              <li key={subfolder.id} onClick={() => setSelectedFolderId(subfolder.id)}>
+            {folderContents.subfolders?.map(subfolder => (
+              <li key={subfolder.id} onClick={() => onFolderSelect(subfolder.id)}>
                 <span className="icon">📁</span> {subfolder.name}
               </li>
             ))}
-            {folderContents.documents.map(doc => (
-              <li key={doc.id} onClick={() => handleDocClick(doc)}>
+            {folderContents.documents?.map(doc => (
+              <li 
+                key={doc.id} 
+                className={doc.id === selectedDocId ? 'selected' : ''}
+                onClick={() => handleDocSelect(doc)}
+                onDoubleClick={() => handleDocOpen(doc)}
+              >
                 <span className="icon">
                   {doc.versions.length > 0 && doc.versions[doc.versions.length - 1].filename.toLowerCase().endsWith('.ifc') ? '🏗️' : '📄'}
                 </span> 
@@ -229,8 +232,8 @@ function DocumentosTabContent() {
         <NewDocumentModal
           projectId={projectId}
           folderId={selectedFolderId}
-          onClose={() => setIsUploadModalOpen(false)}
-          onUploadSuccess={handleUploadSuccess}
+          onClose={() => setIsUploadModalOpen(false)} 
+          onDocumentUploaded={handleUploadSuccess}
         />
       )}
       

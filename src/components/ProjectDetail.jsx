@@ -1,30 +1,28 @@
-// src/components/ProjectDetail.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, Outlet, useLocation } from 'react-router-dom';
 import { flattenTaskTree } from '../utils/taskUtils';
-import api from '../api/axiosConfig'; // <-- 1. Importa 'api'
-import { useAuth } from '../context/AuthContext'; // <-- 2. Importa 'useAuth'
+import api from '../api/axiosConfig';
+import { useAuth } from '../context/AuthContext';
 
 function ProjectDetail() {
   const { projectId } = useParams();
   const location = useLocation(); 
-  const { user } = useAuth(); // <-- 3. Obtiene el usuario logueado
-  
+  const { user } = useAuth();   
   const [project, setProject] = useState(null);
   const [flatTasks, setFlatTasks] = useState([]);
   const [error, setError] = useState(null);
-  // --- INICIO DE LA CORRECCIÓN ---
-  // 1. Estado para guardar el documento que se usará en el visor BIM
   const [selectedDocument, setSelectedDocument] = useState(null);
+  // --- INICIO DE LA CORRECCIÓN: Centralizar el estado del contenido de la carpeta ---
+  const [selectedFolderId, setSelectedFolderId] = useState(null);
+  const [folderContents, setFolderContents] = useState(null);
+  const [isLoadingFolder, setIsLoadingFolder] = useState(false);
   // --- FIN DE LA CORRECCIÓN ---
-  
-  // 4. Función de recarga (ahora usa 'api')
+
   const fetchProjectData = () => {
     setError(null);
-    api.get(`/projects/${projectId}`) // <-- Usa 'api'
+    api.get(`/projects/${projectId}`) 
       .then(response => {
         setProject(response.data); 
-        // Verifica que 'tasks' exista antes de aplanar
         const tasks = response.data.tasks || [];
         const flattened = flattenTaskTree(tasks);
         setFlatTasks(flattened);
@@ -40,25 +38,52 @@ function ProjectDetail() {
   }, [projectId]); 
 
   const handleTaskCreated = () => { fetchProjectData(); };
-
-  // --- INICIO DE LA CORRECCIÓN ---
-  // 2. Función que se pasará a DocumentosTabContent para actualizar el estado
+  
   const handleDocumentSelect = (doc) => {
     setSelectedDocument(doc);
   };
+
+  // --- INICIO DE LA CORRECCIÓN: Cargar contenido de la carpeta en el padre ---
+  useEffect(() => {
+    const fetchFolderContents = async () => {
+      if (!selectedFolderId) {
+        setFolderContents(null);
+        return;
+      }
+      setIsLoadingFolder(true);
+      try {
+        const response = await api.get(`/folders/${selectedFolderId}`);
+        setFolderContents(response.data);
+        // Al cambiar de carpeta, deseleccionamos cualquier documento
+        setSelectedDocument(null);
+      } catch (err) {
+        console.error("Error cargando contenido de carpeta en ProjectDetail:", err);
+        setError("No se pudo cargar el contenido de la carpeta.");
+      } finally {
+        setIsLoadingFolder(false);
+      }
+    };
+
+    fetchFolderContents();
+  }, [selectedFolderId]);
+  // --- FIN DE LA CORRECCIÓN ---
   
   const getActiveTab = () => {
     const path = location.pathname;
+    if (path.includes('/bim-data')) return 'bim-data';
     if (path.includes('/bim')) return 'bim';
     if (path.includes('/documents')) return 'documents';
-    if (path.includes('/budget')) return 'budget';
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Ahora, cualquier sub-ruta de /budget activará la pestaña de presupuesto.
+    if (path.startsWith(`/projects/${projectId}/budget`)) return 'budget';
+    // --- FIN DE LA CORRECCIÓN ---
     if (path.includes('/gantt')) return 'gantt';
     return 'tasks';
   };
   const activeTab = getActiveTab();
 
   if (error) return <p style={{ color: 'red' }}>{error}</p>;
-  if (!project) return <p>Cargando...</p>; // Muestra cargando mientras 'project' es null
+  if (!project) return <p>Cargando...</p>; 
 
   return (
     <div>
@@ -105,6 +130,12 @@ function ProjectDetail() {
         >
           Visor BIM
         </Link>
+        <Link 
+          to={`/projects/${projectId}/bim-data`}
+          className={`tab-button ${activeTab === 'bim-data' ? 'active' : ''}`}
+        >
+          Datos BIM
+        </Link>
       </div>
 
       <div className="tab-content">
@@ -112,13 +143,18 @@ function ProjectDetail() {
         <Outlet context={{ 
           project, 
           flatTasks, 
-          user, // Pasa el objeto 'user'
+          user, 
           onTaskCreated: handleTaskCreated,
           refetchProject: fetchProjectData,
           setProject: setProject,
-          // 3. Pasamos el estado y la función al contexto
+          // --- INICIO DE LA CORRECCIÓN: Pasar el estado y los setters al hijo ---
           selectedDocument: selectedDocument,
-          onDocumentSelect: handleDocumentSelect
+          onDocumentSelect: handleDocumentSelect,
+          selectedFolderId: selectedFolderId,
+          onFolderSelect: setSelectedFolderId,
+          folderContents: folderContents,
+          isLoadingFolder: isLoadingFolder
+          // --- FIN DE LA CORRECCIÓN ---
         }} />
       </div>
     </div>

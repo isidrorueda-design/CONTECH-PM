@@ -1,31 +1,27 @@
 // src/components/GanttChart.jsx
 import React, { useEffect, useRef } from 'react';
-import { gantt } from 'dhtmlx-gantt';
-import 'dhtmlx-gantt/codebase/dhtmlxgantt.css';
+import { gantt } from 'dhtmlx-gantt'; // <-- Importa 'dhtmlx-gantt' (SIN llaves)
+import 'dhtmlx-gantt/codebase/dhtmlxgantt.css'; // Importa los estilos
 
 function GanttChart({ tasks, links }) {
     const ganttContainer = useRef(null);
 
     useEffect(() => {
-        // --- 1. ¡LÓGICA DE PLANTILLA ACTUALIZADA! ---
-        // Esta función ahora usa el campo 'status' que le pasamos
+        // --- 1. Lógica de Plantilla (para colores) ---
         gantt.templates.task_class = (start, end, task) => {
-            
-            // Lógica basada en el 'status' de la Tarea
+            // 'task' es el objeto que viene de GanttTabContent
             if (task.status === "Retrasada") {
                 return "gantt-task-delayed"; // Clase CSS para Rojo
             }
             if (task.status === "Completada") {
                 return "gantt-task-completed"; // Clase CSS para Gris
             }
-            
-            // Para 'Pendiente' o 'En Progreso', usa el azul por defecto
             return ""; 
         };
 
-        // --- 2. Configuración de Escala y Columnas (sin cambios) ---
+        // --- 2. Configuración de Escala y Columnas ---
         gantt.config.scale_unit = "month";
-        gantt.config.date_scale = "%F, %Y";
+        gantt.config.date_scale = "%F, %Y"; // Formato: "Noviembre, 2025"
         gantt.config.subscales = [
             { unit: "week", step: 1, date: "Semana #%W" },
             { unit: "day", step: 1, date: "%d, %D" } 
@@ -41,20 +37,20 @@ function GanttChart({ tasks, links }) {
             }
         ];
 
-        // --- 3. Configuración del Marcador de "Hoy" (sin cambios) ---
+        // --- 3. Marcador de "Hoy" ---
         gantt.config.show_progress = true;
         gantt.plugins({ marker: true });
         
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        gantt.deleteMarker("today");
+        gantt.deleteMarker("today"); // Limpia marcadores antiguos
         gantt.addMarker({
             start_date: today,
             css: "today",
             text: "Hoy"
         });
 
-        gantt.config.xml_date = "%Y-%m-%d";
+        gantt.config.xml_date = "%Y-%m-%d"; // Lee fechas YYYY-MM-DD
         gantt.init(ganttContainer.current);
         gantt.parse({ data: tasks, links: links });
 
@@ -63,27 +59,22 @@ function GanttChart({ tasks, links }) {
         };
     }, [tasks, links]);
 
-    // --- 4. CSS (sin cambios, ya incluye las clases) ---
+    // --- 4. CSS (para los colores) ---
     const style = `
-        /* Estilo para la barra de tarea atrasada (ROJO) */
         .gantt_task_bar.gantt-task-delayed {
-            background-color: #e63946; /* Rojo */
+            background-color: #e63946;
             border-color: #c12c38;
         }
         .gantt_task_progress.gantt-task-delayed {
-             background-color: #f77f89; /* Rojo más claro */
+             background-color: #f77f89;
         }
-        
-        /* Estilo para la barra de tarea completada (GRIS) */
         .gantt_task_bar.gantt-task-completed {
-            background-color: #adb5bd; /* Gris */
+            background-color: #adb5bd;
             border-color: #8a929a;
         }
         .gantt_task_progress.gantt-task-completed {
-            background-color: #ced4da; /* Gris más claro */
+            background-color: #ced4da;
         }
-
-        /* Estilo para el marcador de "Hoy" */
         .gantt_task_line.today {
             background-color: #F0A0A0;
         }

@@ -1,278 +1,274 @@
 // src/components/budget/EstimateModal.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import api from '../../api/axiosConfig'; // <-- 1. Importa 'api'
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/axiosConfig';
 
-// Helper para formatear moneda
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-  }).format(value);
+  if (typeof value !== 'number') return '$0.00';
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 };
 
-// --- INICIO: Componente de Input de Moneda ---
-function CurrencyInput({ label, value, onValueChange }) {
-  const [displayValue, setDisplayValue] = useState(value === 0 ? '' : String(value));
-
-  useEffect(() => {
-    // Actualiza el display si el valor inicial cambia (ej. al editar)
-    setDisplayValue(value === 0 ? '' : String(value));
-  }, [value]);
-
-  const handleInputChange = (e) => {
-    const rawValue = e.target.value;
-    // Permite solo números y un punto decimal
-    if (/^\d*\.?\d*$/.test(rawValue)) {
-      setDisplayValue(rawValue);
-      const numericValue = parseFloat(rawValue) || 0;
-    onValueChange(numericValue);
-    }
-  };
-
-  const handleBlur = () => {
-    setDisplayValue(value === 0 ? '' : formatCurrency(value).replace(/[^\d,.-]/g, ''));
-  };
-
-  return (
-    <div className="form-group">
-      <label>{label}</label>
-      <div className="currency-input-wrapper">
-        <span className="currency-symbol">$</span>
-        <input type="text" value={displayValue} onChange={handleInputChange} onBlur={handleBlur} className="currency-input" />
-      </div>
-    </div>
-  );
-}
-// --- FIN: Componente de Input de Moneda ---
-
 function EstimateModal({ mode, projectId, initialData, onClose, onSave }) {
-  // Estados del formulario
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     contract_id: '',
     numero_estimacion: '',
-    estimado: 0,
-    deductiva_estimacion: 0,
-    amortizado: 0,
-    fondo_garantia: 0,
-    retenciones: 0,
+    fecha: new Date().toISOString().split('T')[0],
+    monto_estimado_manual: '',
+    otras_deductivas: '',
+    amortizacion_anticipo: '',
+    fondo_garantia: '',
+    otras_retenciones: '',
+    amortizacion_manual: false,
+    fondo_manual: false,
+    fondo_garantia_porcentaje: '7.5',
   });
 
-  const [contracts, setContracts] = useState([]); // <-- Se inicializa como array vacío
-  // --- INICIO DE LA MODIFICACIÓN ---
-  const [selectedContractorId, setSelectedContractorId] = useState('');
-  // --- FIN DE LA MODIFICACIÓN ---
+  const [contracts, setContracts] = useState([]);
   const [error, setError] = useState(null);
+  const [filterContractor, setFilterContractor] = useState('');
 
-  // Carga la lista de Contratos cuando el modal se abre
   useEffect(() => {
-    // 2. Usa 'api.get' (ya está autenticado)
     api.get(`/projects/${projectId}/contracts/`)
-      .then(response => {
-        setContracts(response.data); // Axios usa .data
-      })
-      .catch(err => {
-        if (err.response && err.response.status === 404) {
-          setError('No se encontraron contratos para este proyecto. Por favor, cree uno primero.');
-        } else if (err.response && err.response.status === 403) {
-          setError('No tiene permiso para ver los contratos de este proyecto.');
-        } else {
-          setError('No se pudieron cargar los contratos.');
-        }
-      });
+      .then(res => setContracts(res.data))
+      .catch(err => setError('Error al cargar contratos'));
   }, [projectId]);
 
-  // Rellenar formulario si es modo 'edit' (sin cambios)
   useEffect(() => {
     if (mode === 'edit' && initialData) {
+
+      const baseValue = initialData.total_items_calculado > 0
+        ? initialData.total_items_calculado
+        : (initialData.monto_estimado_manual || 0);
+
       setFormData({
-        contract_id: initialData.contract_id,
+        contract_id: initialData.contract_id || '',
         numero_estimacion: initialData.numero_estimacion || '',
-        estimado: initialData.estimado || 0,
-        deductiva_estimacion: initialData.deductiva_estimacion || 0,
-        amortizado: initialData.amortizado || 0,
-        fondo_garantia: initialData.fondo_garantia || 0,
-        retenciones: initialData.retenciones || 0,
-      });
-      setSelectedContractorId(initialData.contract?.contractor_id || '');
-    } else {
-      setFormData({
-        contract_id: '', numero_estimacion: '', estimado: 0, deductiva_estimacion: 0,
-        amortizado: 0, fondo_garantia: 0, retenciones: 0,
+        fecha: initialData.fecha || new Date().toISOString().split('T')[0],
+        monto_estimado_manual: baseValue.toString(),
+        otras_deductivas: (initialData.otras_deductivas || 0).toString(),
+        amortizacion_anticipo: (initialData.amortizacion_anticipo || 0).toString(),
+        fondo_garantia: (initialData.fondo_garantia || 0).toString(),
+        otras_retenciones: (initialData.otras_retenciones || 0).toString(),
+        amortizacion_manual: initialData.amortizacion_manual || false,
+        fondo_manual: initialData.fondo_manual || false,
+        fondo_garantia_porcentaje: initialData.fondo_garantia_porcentaje || '7.5',
       });
     }
   }, [mode, initialData]);
 
-  // --- INICIO DE LA MODIFICACIÓN: Lógica de filtros ---
-  const uniqueContractors = useMemo(() => {
-    const contractorMap = new Map();
-    contracts.forEach(c => {
-      if (c.contractor && !contractorMap.has(c.contractor.id)) {
-        contractorMap.set(c.contractor.id, c.contractor);
+  const calculations = useMemo(() => {
+    const estimadoManual = parseFloat(formData.monto_estimado_manual) || 0;
+    const deductiva = parseFloat(formData.otras_deductivas) || 0;
+    const retenciones = parseFloat(formData.otras_retenciones) || 0;
+    const selectedContract = contracts.find(c => c.id == formData.contract_id);
+    const aplicaIVA = selectedContract ? selectedContract.aplica_iva : true;
+    let amortizacionCalculada = 0;
+    if (selectedContract) {
+      const totalConIva = selectedContract.total_con_iva ||
+        (selectedContract.total_ordinario * (selectedContract.aplica_iva ? 1.16 : 1)) ||
+        1;
+
+      const anticipo = selectedContract.anticipo || 0;
+
+      if (totalConIva > 0) {
+        const factorAmortizacion = anticipo / totalConIva;
+        amortizacionCalculada = estimadoManual * factorAmortizacion;
       }
-    });
-    return Array.from(contractorMap.values());
-  }, [contracts]);
+    }
 
-  const availableContracts = useMemo(() => {
-    if (!selectedContractorId) return [];
-    return contracts.filter(c => c.contractor && c.contractor.id == selectedContractorId);
-  }, [contracts, selectedContractorId]);
+    const amortizadoFinal = formData.amortizacion_manual
+      ? (parseFloat(formData.amortizacion_anticipo) || 0)
+      : amortizacionCalculada;
 
-  const handleContractorChange = (e) => {
-    const newContractorId = e.target.value;
-    setSelectedContractorId(newContractorId);
-    // Resetea la selección de contrato cuando cambia el contratista
-    setFormData(prev => ({ ...prev, contract_id: '' }));
-  };
-  const selectedContract = useMemo(() => {
-    if (!formData.contract_id) return null;
-    return contracts.find(c => c.id == formData.contract_id);
-  }, [formData.contract_id, contracts]);
+    const fondoGarantiaCalculado = estimadoManual * (parseFloat(formData.fondo_garantia_porcentaje) / 100);
+    const fondoGarantiaFinal = formData.fondo_manual
+      ? (parseFloat(formData.fondo_garantia) || 0)
+      : fondoGarantiaCalculado;
 
-  const calculatedTotals = useMemo(() => {
-    const subtotal = 
-      formData.estimado - 
-      formData.deductiva_estimacion - 
-      formData.amortizado - 
-      formData.fondo_garantia - 
-      formData.retenciones;
+    const subtotalNeto = estimadoManual - amortizadoFinal - fondoGarantiaFinal - deductiva - retenciones;
+    const iva = aplicaIVA ? (subtotalNeto * 0.16) : 0;
+    const total = subtotalNeto + iva;
 
-    const ivaAplica = selectedContract?.aplica_iva ?? false;
-    const ivaRate = 0.16; // 16%
-    
-    const iva = ivaAplica ? subtotal * ivaRate : 0;
-    const totalConIva = subtotal + iva;
+    return {
+      amortizado: amortizadoFinal,
+      fondoGarantia: fondoGarantiaFinal,
+      subtotalNeto, iva, total
+    };
+  }, [formData, contracts]);
 
-    return { iva, totalConIva };
-  }, [formData, selectedContract]);
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value, }));
-  }; 
-  // Actualiza el estado del formulario desde el CurrencyInput
-  const handleCurrencyChange = (name, numericValue) => {
-    setFormData(prev => ({ ...prev, [name]: numericValue }));
-  }; 
+    const { name, value, type, checked } = e.target;
+    if (name === 'amortizacion_manual' || name === 'fondo_manual') {
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
     if (!formData.contract_id || !formData.numero_estimacion) {
-      setError('Debe seleccionar un contrato y proporcionar un número de estimación.');
+      setError('Contrato y Número de Estimación son obligatorios.');
       return;
     }
 
-    const estimateData = {
+    const payload = {
       ...formData,
-      contract_id: parseInt(formData.contract_id, 10),
+      contract_id: parseInt(formData.contract_id),
+      amortizacion_anticipo: calculations.amortizado,
+      fondo_garantia: calculations.fondoGarantia,
+      monto_estimado_manual: parseFloat(formData.monto_estimado_manual) || 0,
+      otras_deductivas: parseFloat(formData.otras_deductivas) || 0,
+      otras_retenciones: parseFloat(formData.otras_retenciones) || 0,
     };
 
+    delete payload.amortizacion_manual;
+    delete payload.fondo_manual;
+    delete payload.fondo_garantia_porcentaje;
     const isNew = mode === 'new';
-    const url = isNew 
-      ? `/projects/${projectId}/estimates/` 
-      : `/estimates/${initialData.id}/`; // <-- CORRECCIÓN: URL para editar
-    const method = isNew ? 'post' : 'put'; // Métodos de Axios
+    const url = isNew ? `/projects/${projectId}/estimates/` : `/estimates/${initialData.id}`;
+    const method = isNew ? 'post' : 'put';
 
     try {
-      // 3. Usa 'api[method]' (ya está autenticado)
-      const response = await api[method](url, estimateData);
-      
-      onSave(response.data); // Avisa al padre
-      onClose(); // Cierra el modal
+      const response = await api[method](url, payload);
+      navigate(`/projects/${projectId}/budget/estimates/${response.data.id}`);
+      onClose();
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError('Error al guardar la estimación.');
-      }
+      setError(err.response?.data?.detail || 'Error al guardar.');
     }
   };
 
+  const uniqueContractors = useMemo(() => {
+    if (!contracts.length) return [];
+    const contractorMap = new Map();
+    contracts.forEach(c => {
+      if (c.contractor && !contractorMap.has(c.contractor.id)) {
+        contractorMap.set(c.contractor.id, c.contractor);
+      }
+    });
+    return Array.from(contractorMap.values()).sort((a, b) => a.razon_social.localeCompare(b.razon_social));
+  }, [contracts]);
+
+  const availableContracts = useMemo(() => {
+    if (!filterContractor) {
+      return [];
+    }
+    return contracts.filter(c => c.contractor?.id === parseInt(filterContractor));
+  }, [contracts, filterContractor]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h3>{mode === 'new' ? 'Nueva Estimación' : 'Editar Estimación'}</h3>
-        
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <h3>{mode === 'new' ? 'Nueva Estimación' : 'Editar Encabezado'}</h3>
+
         <form onSubmit={handleSubmit} className="card-form">
           {error && <p style={{ color: 'red' }}>{error}</p>}
-          
-          {/* --- INICIO DE LA MODIFICACIÓN: Nuevo filtro de contratista --- */}
-          <div className="form-group">
-            <label>Contratista:</label>
-            <select value={selectedContractorId} onChange={handleContractorChange}>
-              <option value="">-- Primero seleccione un contratista --</option>
-              {uniqueContractors.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.razon_social}
-                </option>
-              ))}
-            </select>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div className="form-group" style={{ flex: '1 1 200px' }}>
+              <label>Contratista:</label>
+              <select
+                value={filterContractor}
+                onChange={e => {
+                  setFilterContractor(e.target.value);
+                  handleChange({ target: { name: 'contract_id', value: '' } });
+                }}
+                disabled={mode === 'edit'}
+              >
+                <option value="">-- Seleccione Contratista --</option>
+                {uniqueContractors.map(c => <option key={c.id} value={c.id}>{c.razon_social}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: '1 1 200px' }}>
+              <label>Contrato:</label>
+              <select name="contract_id" value={formData.contract_id} onChange={handleChange} disabled={mode === 'edit' || !filterContractor} required>
+                <option value="">-- Seleccione --</option>
+                {availableContracts.map(c => <option key={c.id} value={c.id}>{c.numero_contrato}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{ width: '150px' }}>
+              <label>No. Estimación:</label>
+              <input type="text" name="numero_estimacion" value={formData.numero_estimacion} onChange={handleChange} required />
+            </div>
+            <div className="form-group" style={{ width: '150px' }}>
+              <label>Fecha:</label>
+              <input type="date" name="fecha" value={formData.fecha} onChange={handleChange} />
+            </div>
           </div>
-          {/* --- FIN DE LA MODIFICACIÓN --- */}
 
-          <div className="form-group">
-            <label>Contrato (Tabla 3):</label>
-            <select name="contract_id" value={formData.contract_id} onChange={handleChange} disabled={!selectedContractorId}>
-              <option value="">-- Seleccione un Contrato --</option>
-              {availableContracts.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.numero_contrato} ({c.trabajos})
-                </option>
-              ))}
-            </select>
+          <hr style={{ margin: '10px 0' }} />
+          <div className="form-group full-width">
+            <label>Monto Estimado:</label>
+            <input type="number" name="monto_estimado_manual" value={formData.monto_estimado_manual} onChange={handleChange} step="any" placeholder="0.00" required />
           </div>
 
-          <div className="form-group">
-            <label>Número de Estimación:</label>
-            <input type="text" name="numero_estimacion" value={formData.numero_estimacion} onChange={handleChange} />
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', border: '1px solid #ddd', padding: '10px', borderRadius: '4px', marginBottom: '10px' }}>
+
+            <div className="form-group" style={{ flex: 1, borderBottom: 'none' }}>
+              <label>Amortización (Anticipo):</label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  name="amortizacion_anticipo"
+                  value={formData.amortizacion_manual ? formData.amortizacion_anticipo : calculations.amortizado.toFixed(2)}
+                  onChange={handleChange}
+                  step="any"
+                  disabled={!formData.amortizacion_manual}
+                />
+                <button type="button" onClick={() => setFormData(p => ({ ...p, amortizacion_manual: !p.amortizacion_manual }))} style={{ marginLeft: '10px', padding: '5px 10px', fontSize: '0.8rem' }}>
+                  {formData.amortizacion_manual ? 'Automático' : 'Manual'}
+                </button>
+              </div>
+              <small style={{ color: '#888' }}>Cálculo: {calculations.amortizado.toFixed(2)}</small>
+            </div>
+
+            <div className="form-group" style={{ flex: 1, borderBottom: 'none' }}>
+              <label>Fondo Garantía:</label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <select name="fondo_garantia_porcentaje" value={formData.fondo_garantia_porcentaje} onChange={handleChange} disabled={formData.fondo_manual} style={{ width: '60px', marginRight: '5px' }}>
+                  <option value="7.5">7.5%</option>
+                  <option value="5">5%</option>
+                  <option value="0">0%</option>
+                </select>
+                <input
+                  type="number"
+                  name="fondo_garantia"
+                  value={formData.fondo_manual ? formData.fondo_garantia : calculations.fondoGarantia.toFixed(2)}
+                  onChange={handleChange}
+                  step="any"
+                  disabled={!formData.fondo_manual}
+                />
+                <button type="button" onClick={() => setFormData(p => ({ ...p, fondo_manual: !p.fondo_manual }))} style={{ marginLeft: '10px', padding: '5px 10px', fontSize: '0.8rem' }}>
+                  {formData.fondo_manual ? 'Automático' : 'Manual'}
+                </button>
+              </div>
+              <small style={{ color: '#888' }}>Cálculo: {calculations.fondoGarantia.toFixed(2)}</small>
+            </div>
+
           </div>
 
-          {/* ... (Resto del formulario: Montos, etc. sin cambios) ... */}
-          <CurrencyInput 
-            label="Monto Estimado:"
-            value={formData.estimado}
-            onValueChange={(val) => handleCurrencyChange('estimado', val)}
-          />
-          <CurrencyInput 
-            label="Deductivas:"
-            value={formData.deductiva_estimacion}
-            onValueChange={(val) => handleCurrencyChange('deductiva_estimacion', val)}
-          />
-          <CurrencyInput 
-            label="Amortización de Anticipo:"
-            value={formData.amortizado}
-            onValueChange={(val) => handleCurrencyChange('amortizado', val)}
-          />
-          <CurrencyInput 
-            label="Fondo de Garantía:"
-            value={formData.fondo_garantia}
-            onValueChange={(val) => handleCurrencyChange('fondo_garantia', val)}
-          />
-          <CurrencyInput 
-            label="Retenciones:"
-            value={formData.retenciones}
-            onValueChange={(val) => handleCurrencyChange('retenciones', val)}
-          />
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Otras Deductivas (-):</label>
+              <input type="number" name="otras_deductivas" value={formData.otras_deductivas} onChange={handleChange} step="any" />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Otras Retenciones (-):</label>
+              <input type="number" name="otras_retenciones" value={formData.otras_retenciones} onChange={handleChange} step="any" />
+            </div>
+          </div>
 
-          {/* --- INICIO CAMPOS INFORMATIVOS --- */}
-          <hr style={{ gridColumn: '1 / -1', borderTop: '1px solid #eee', margin: '1rem 0' }} />
-          <div className="form-group">
-            <label style={{color: '#6c757d'}}>IVA :</label>
-            <input type="text" value={formatCurrency(calculatedTotals.iva)} readOnly disabled />
+          <div style={{ background: '#e9f7f0', padding: '10px', borderRadius: '4px', marginTop: '10px' }}>
+            <p style={{ margin: '5px 0' }}>Subtotal Neto: <strong>{formatCurrency(calculations.subtotalNeto)}</strong></p>
+            <p style={{ margin: '5px 0' }}>IVA: <strong>{formatCurrency(calculations.iva)}</strong></p>
+            <p style={{ margin: '5px 0', fontSize: '1.1rem' }}>Total a Pagar: <strong>{formatCurrency(calculations.total)}</strong></p>
           </div>
-          <div className="form-group">
-            <label style={{color: '#6c757d', fontWeight: 'bold'}}>Total con IVA :</label>
-            <input 
-              type="text" 
-              value={formatCurrency(calculatedTotals.totalConIva)} 
-              readOnly disabled style={{ fontWeight: 'bold' }}/>
-          </div>
-          {/* --- FIN CAMPOS INFORMATIVOS --- */}
-          
+
           <div className="modal-actions">
             <button type="button" className="btn-cancel" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-save">Guardar Estimación</button>
+            <button type="submit" className="btn-save">Guardar y Continuar</button>
           </div>
         </form>
       </div>
