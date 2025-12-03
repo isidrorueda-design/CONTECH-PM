@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import BcfService from '../../api/BcfService';
-
 function IssuesTab({ projectId, onSelectTopic, onCreateTopic }) {
     const [topics, setTopics] = useState([]);
     const [loading, setLoading] = useState(false);
-
     useEffect(() => {
         if (projectId) {
             loadTopics();
@@ -22,7 +20,6 @@ function IssuesTab({ projectId, onSelectTopic, onCreateTopic }) {
             setLoading(false);
         }
     };
-
     return (
         <div className="issues-tab" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div className="issues-header" style={{ padding: '10px', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

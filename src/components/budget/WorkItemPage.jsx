@@ -10,20 +10,20 @@ const formatCurrency = (value) => {
 };
 
 function WorkItemPage() {
-  const { projectId } = useParams();  
+  const { projectId } = useParams();
   const [workItems, setWorkItems] = useState([]);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);  
+  const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('new');  
+  const [modalMode, setModalMode] = useState('new');
   const [totalPresupuestoBase, setTotalPresupuestoBase] = useState(0);
   const fetchWorkItems = () => {
     setLoading(true);
     api.get(`/projects/${projectId}/work_items/`) // 2. Usar api.get
       .then(response => {
         const data = response.data;
-        const sortedData = data.sort((a, b) => 
+        const sortedData = data.sort((a, b) =>
           a.item_code.localeCompare(b.item_code, undefined, { numeric: true, sensitivity: 'base' })
         );
         setWorkItems(sortedData);
@@ -54,7 +54,7 @@ function WorkItemPage() {
     }
   };
   const handleSave = (savedItem) => {
-    fetchWorkItems(); 
+    fetchWorkItems();
     setSelectedId(savedItem.id);
   };
   const selectedWorkItem = workItems.find(w => w.id === selectedId);
@@ -64,14 +64,32 @@ function WorkItemPage() {
         {/* --- 3. RENOMBRAMOS EL TÍTULO --- */}
         <h2>Presupuesto Base (Partidas)</h2>
         <div className="page-actions">
-          <button className="btn-new" onClick={handleNew}>Nueva Partida</button>
-          <button className="btn-modify" onClick={handleEdit}>Editar Partida</button>
-          <button className="btn-delete" onClick={handleDelete}>Borrar Partida</button>
+          <button
+            onClick={handleNew}
+            title="Nueva Partida"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/new.png" alt="Nueva Partida" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button
+            onClick={handleEdit}
+            title="Editar Partida"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/editar.png" alt="Editar Partida" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button
+            onClick={handleDelete}
+            title="Borrar Partida"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/delete.png" alt="Borrar Partida" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
         </div>
       </div>
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
-      
+
       {/* --- 4. ACTUALIZAMOS LA TABLA --- */}
       <div style={{ overflowX: 'auto' }}>
         <table className="data-table" style={{ minWidth: '1000px' }}>
@@ -87,15 +105,15 @@ function WorkItemPage() {
           </thead>
           <tbody>
             {loading && <tr><td colSpan="6">Cargando...</td></tr>}
-            
+
             {workItems.map(item => {
               const pesoPorcentaje = (totalPresupuestoBase > 0)
                 ? (item.presupuesto_base / totalPresupuestoBase) * 100
                 : 0;
-              
+
               const diffStyle = item.diferencia_costo < 0 ? { color: 'red', fontWeight: 'bold' } : {};
               return (
-                <tr 
+                <tr
                   key={item.id}
                   className={item.id === selectedId ? 'selected' : ''}
                   onClick={() => setSelectedId(item.id)}

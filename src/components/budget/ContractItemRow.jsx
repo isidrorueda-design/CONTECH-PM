@@ -1,7 +1,5 @@
 // src/components/budget/ContractItemRow.jsx
 import React from 'react';
-
-// Helper para formatear moneda
 const formatCurrency = (value) => {
   if (typeof value !== 'number') value = 0;
   return new Intl.NumberFormat('es-MX', {
@@ -11,22 +9,13 @@ const formatCurrency = (value) => {
 
 function ContractItemRow({ item, indent = 0, onSelectItem, isSelected, collapsedGroups, onToggleGroup, visibleColumns, onProgressChange }) {
   
-  const isGroup = item.is_group;
-  
-  // Estilo para el agrupador (negrita)
+  const isGroup = item.is_group;  
   let rowStyle = {};
-  if (isGroup) {
-    rowStyle = { fontWeight: 'bold', backgroundColor: '#f9f9f9' };
-  }
-  if (isSelected) {
-    rowStyle.backgroundColor = '#e0efff'; // Color de resaltado
-  }
-    
+  if (isGroup) {rowStyle = { fontWeight: 'bold', backgroundColor: '#f9f9f9' };}
+  if (isSelected) {rowStyle.backgroundColor = '#e0efff';}    
   const indentStyle = { paddingLeft: `${indent * 20}px` };
-
   return (
     <>
-      {/* --- La Fila Principal --- */}
       <tr style={rowStyle} onClick={() => onSelectItem(item)} className={isSelected ? 'selected' : ''}>
         {visibleColumns.clave.visible && (
           <td style={indentStyle} onClick={(e) => {
@@ -53,7 +42,7 @@ function ContractItemRow({ item, indent = 0, onSelectItem, isSelected, collapsed
               <select
                 value={item.avance_fisico}
                 onChange={(e) => onProgressChange(item.id, parseInt(e.target.value))}
-                onClick={(e) => e.stopPropagation()} // Evita que se seleccione la fila
+                onClick={(e) => e.stopPropagation()} 
                 className="inline-edit-select"
               >
                 {Array.from({ length: 21 }, (_, i) => i * 5).map(val => (
@@ -67,23 +56,18 @@ function ContractItemRow({ item, indent = 0, onSelectItem, isSelected, collapsed
         {visibleColumns.cantidad_aditiva.visible && <td>{isGroup ? '--' : item.cantidad_aditiva}</td>}
         {visibleColumns.cantidad_deductiva.visible && <td>{isGroup ? '--' : item.cantidad_deductiva}</td>}
         {visibleColumns.cantidad_total_vigente.visible && <td>{isGroup ? '--' : <b>{(item.cantidad_total_vigente || 0).toFixed(2)}</b>}</td>}
-        {visibleColumns.precio_unitario.visible && <td>{isGroup ? '--' : formatCurrency(item.precio_unitario)}</td>}
-        
-        {/* El total de un agrupador SÍ se calcula */}
-        {visibleColumns.total_contratado_vigente.visible && <td><b>{formatCurrency(item.total_contratado_vigente)}</b></td>}
-        
+        {visibleColumns.precio_unitario.visible && <td>{isGroup ? '--' : formatCurrency(item.precio_unitario)}</td>}        
+        {visibleColumns.total_contratado_vigente.visible && <td><b>{formatCurrency(item.total_contratado_vigente)}</b></td>}        
         {visibleColumns.cantidad_estimada_acumulada.visible && <td style={{color: 'blue'}}>{isGroup ? '--' : (item.cantidad_estimada_acumulada || 0).toFixed(2)}</td>}
         {visibleColumns.cantidad_por_estimar.visible && <td style={{color: 'green', fontWeight: 'bold'}}>{isGroup ? '--' : (item.cantidad_por_estimar || 0).toFixed(2)}</td>}
       </tr>
-      
-      {/* --- Las Filas Hijas (Recursión) --- */}
       {!collapsedGroups[item.id] && item.subitems && item.subitems.map(subItem => (
         <ContractItemRow 
           key={subItem.id} 
           item={subItem} 
-          indent={indent + 1} // Aumenta la indentación
+          indent={indent + 1}
           onSelectItem={onSelectItem}
-          isSelected={isSelected} // isSelected se pasa directamente
+          isSelected={isSelected}
           collapsedGroups={collapsedGroups}
           onToggleGroup={onToggleGroup}
           visibleColumns={visibleColumns}

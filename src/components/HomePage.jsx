@@ -7,16 +7,11 @@ function HomePage() {
   const { user } = useAuth();
 
   if (!user) {
-    // Si no hay usuario (aún cargando o token inválido), espera
     return <p>Cargando sesión...</p>;
   }
 
-  // ¡La lógica de enrutamiento!
   if (user.role === 'super_admin') {
-    // Si es Super Admin, llévalo al dashboard de admin
-    return <Navigate to="/admin" replace />;
-  } else {
-    // Si es 'admin' o 'user', llévalo a la lista de proyectos
+    return <Navigate to="/admin" replace />; } else {
     return <Navigate to="/projects" replace />;
   }
 }

@@ -140,14 +140,28 @@ function EstimatePage() {
               onChange={handleFileChange}
               accept=".xlsx,.xls,.csv"
             />
-
-            <button className="btn-secondary" onClick={handleExport}>
-              Exportar
+            <button 
+              onClick={handleExport} 
+              title="Exportar Estimaciones"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+            >
+              <img src="/icons/export.png" alt="Exportar Estimaciones" style={{ height: '34px', verticalAlign: 'middle' }} />
             </button>
-            <button className="btn-secondary" onClick={handleImportClick} disabled={importing}>
-              {importing ? 'Importando...' : 'Importar'}
+            <button 
+              onClick={handleImportClick} 
+              title="Importar Estimaciones"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+              disabled={importing}
+            >
+              <img src="/icons/import.png" alt="Importar Estimaciones" style={{ height: '34px', verticalAlign: 'middle' }} />
             </button>
-            <button className="btn-save" onClick={() => setShowModal(true)}>Nueva Estimación</button>
+            <button 
+              onClick={() => setShowModal(true)} 
+              title="Nueva Estimación"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+            >
+              <img src="/icons/new.png" alt="Nueva Estimación" style={{ height: '34px', verticalAlign: 'middle' }} />
+            </button>
           </div>
         </div>
 
@@ -237,7 +251,7 @@ function EstimatePage() {
               const totalPagar = subtotalNeto + iva;
 
               return (
-                <tr key={e.id} onClick={() => handleRowClick(e.id)} style={{ cursor: 'pointer' }}>
+                <tr key={e.id} onDoubleClick={() => handleRowClick(e.id)} style={{ cursor: 'pointer' }} title="Doble clic para ver detalles">
                   <td>{e.numero_estimacion}</td>
                   <td title={e.contract?.contractor?.razon_social}>{e.contract?.numero_contrato || 'N/A'}</td>
                   <td>{e.fecha}</td>

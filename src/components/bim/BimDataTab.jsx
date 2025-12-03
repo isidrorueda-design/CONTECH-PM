@@ -1,29 +1,18 @@
 // src/components/bim/BimDataTab.jsx
 import React, { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-
-// (El componente Visor BIM no se usa en esta pestaña,
-// así que no necesitamos importarlo en absoluto).
-
 function BimDataTab() {
   const { project } = useOutletContext();
-  
-  // Estado para ver las propiedades de un elemento
   const [selectedElementProps, setSelectedElementProps] = useState(null);
-
-  // 1. Extraemos TODOS los elementos de TODAS las versiones de TODOS los documentos
   const allBimElements = useMemo(() => {
     let elements = [];
-    // Verificación de seguridad
     if (!project || !project.folders) return elements;
-
     project.folders.forEach(folder => {
       if (folder.documents) {
         folder.documents.forEach(doc => {
           if (doc.versions) {
             doc.versions.forEach(version => {
               if (version.bim_elements) {
-                // Añadimos una referencia a la versión y al documento
                 const elementsWithContext = version.bim_elements.map(el => ({
                   ...el,
                   docName: doc.name,
@@ -38,11 +27,8 @@ function BimDataTab() {
     });
     return elements;
   }, [project]);
-
   return (
-    <div className="dms-layout"> {/* Reutilizamos el layout de DMS */}
-      
-      {/* --- Panel Izquierdo: Lista de Elementos --- */}
+    <div className="dms-layout">
       <aside className="dms-sidebar" style={{ maxWidth: '60%' }}>
         <div className="dms-header">
           <h3>Elementos BIM Extraídos del Proyecto</h3>
@@ -80,8 +66,6 @@ function BimDataTab() {
           </table>
         </div>
       </aside>
-
-      {/* --- Panel Derecho: Propiedades --- */}
       <main className="dms-main" style={{ flex: 2 }}>
         <div className="dms-header">
           <h3>Propiedades y Cantidades</h3>

@@ -88,18 +88,9 @@ ul {
 
 .form-group {
   display: flex;
-  flex-direction: column;
-}
-
-/* Campo de nombre ocupa ambas columnas */
-.form-group.full-width {
-  grid-column: 1 / -1;
-}
-
-.form-group label {
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-}
+  flex-direction: column;}
+.form-group.full-width {grid-column: 1 / -1;}
+.form-group label {margin-bottom: 0.5rem; font-weight: bold;}
 
 .form-group input,
 .form-group textarea,

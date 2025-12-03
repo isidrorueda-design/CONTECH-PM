@@ -1,0 +1,18 @@
+/* Estilos para la tabla de detalles de la estimación */
+
+.estimate-detail-table .inline-edit-input {
+    width: 100%;
+    min-width: 80px;
+    padding: 6px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-sizing: border-box;
+    text-align: right;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.estimate-detail-table .inline-edit-input:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}

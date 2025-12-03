@@ -1,91 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../api/axiosConfig'; // 1. Importar axios
+import api from '../../api/axiosConfig';
 
-function ContractorModal({ mode, initialData, onClose, onSave }) {
-  const [razonSocial, setRazonSocial] = useState('');
-  const [responsable, setResponsable] = useState('');
-  const [telefono, setTelefono] = useState('');
-  const [correo, setCorreo] = useState('');
+function ContractorModal({ mode, initialData, onClose, onSave, projectId }) {
+  const [formData, setFormData] = useState({
+    razon_social: '',
+    responsable: '',
+    telefono: '',
+    correo_electronico: ''
+  });
   const [error, setError] = useState(null);
 
-  // Rellena el formulario si estamos en modo 'edit'
   useEffect(() => {
     if (mode === 'edit' && initialData) {
-      setRazonSocial(initialData.razon_social || '');
-      setResponsable(initialData.responsable || '');
-      setTelefono(initialData.telefono || '');
-      setCorreo(initialData.correo_electronico || '');
-    } else {
-      // Limpia si es 'new'
-      setRazonSocial('');
-      setResponsable('');
-      setTelefono('');
-      setCorreo('');
+      setFormData({
+        razon_social: initialData.razon_social || '',
+        responsable: initialData.responsable || '',
+        telefono: initialData.telefono || '',
+        correo_electronico: initialData.correo_electronico || ''
+      });
     }
   }, [mode, initialData]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    if (!razonSocial) {
-      setError('La Razón Social es obligatoria.');
+    if (!formData.razon_social) {
+      setError("La Razón Social es obligatoria.");
       return;
     }
 
-    const contractorData = {
-      razon_social: razonSocial,
-      responsable: responsable || null,
-      telefono: telefono || null,
-      correo_electronico: correo || null,
-    };
-
-    const isNew = mode === 'new';
-    const url = isNew ? `/contractors/` : `/contractors/${initialData.id}`;
-
     try {
       let response;
-      if (isNew) {
-        response = await api.post(url, contractorData);
+      if (mode === 'new') {
+        // --- ¡AQUÍ ESTÁ EL CAMBIO IMPORTANTE! ---
+        // La URL ahora incluye el projectId para la creación.
+        response = await api.post(`/projects/${projectId}/contractors/`, formData);
       } else {
-        response = await api.put(url, contractorData);
+        // La edición utiliza el ID del contratista específico.
+        response = await api.put(`/contractors/${initialData.id}/`, formData);
       }
-      
-      const savedContractor = response.data;
-      onSave(savedContractor); // Avisa al padre
-      onClose(); // Cierra el modal
+      onSave(response.data);
+      onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.detail || `Error al ${mode === 'new' ? 'crear' : 'actualizar'} el contratista.`);
+      console.error(err);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h3>{mode === 'new' ? 'Nuevo Contratista' : 'Editar Contratista'}</h3>
-        
-        <form onSubmit={handleSubmit} className="card-form">
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          
-          <div className="form-group">
-            <label>Razón Social:</label>
-            <input type="text" value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
+    <div className="modal-backdrop">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h2>{mode === 'new' ? 'Nuevo Contratista' : 'Editar Contratista'}</h2>
+          <button onClick={onClose} className="modal-close-btn">&times;</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            {error && <p style={{ color: 'red' }}>{error}</p>}
+            <div className="form-group">
+              <label>Razón Social *</label>
+              <input type="text" name="razon_social" value={formData.razon_social} onChange={handleChange} required />
+            </div>
+            <div className="form-group">
+              <label>Responsable</label>
+              <input type="text" name="responsable" value={formData.responsable} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Teléfono</label>
+              <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Correo Electrónico</label>
+              <input type="email" name="correo_electronico" value={formData.correo_electronico} onChange={handleChange} />
+            </div>
           </div>
-          <div className="form-group">
-            <label>Responsable (Opcional):</label>
-            <input type="text" value={responsable} onChange={(e) => setResponsable(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Teléfono (Opcional):</label>
-            <input type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label>Correo (Opcional):</label>
-            <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} />
-          </div>
-          
-          <div className="modal-actions">
-            <button type="button" className="btn-cancel" onClick={onClose}>Cancelar</button>
+          <div className="modal-footer">
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn-save">Guardar</button>
           </div>
         </form>

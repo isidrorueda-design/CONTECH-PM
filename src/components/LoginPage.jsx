@@ -7,33 +7,28 @@ function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const { login } = useAuth(); // Obtiene la función 'login' del Contexto
-  const navigate = useNavigate(); // Hook para redirigir
-
+  const { login } = useAuth(); 
+  const navigate = useNavigate(); 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
     try {
-      // 1. Llama a 'login', que ahora devuelve la ruta
       const redirectTo = await login(email, password);
-      
-      // 2. Navega a la ruta que el AuthContext decidió
       navigate(redirectTo);
 
     } catch (err) {
       console.error("Error al iniciar sesión:", err);
-      // Muestra el error del backend (ej. "Email o contraseña incorrectos")
       setError(err.response?.data?.detail || 'Error al iniciar sesión.');
     }
   };
 
-  // Estilos (puedes crear un 'login.css' si prefieres)
   const loginContainerStyle = {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '80vh',
+    height: '70vh',
   };
   const loginFormStyle = {
     maxWidth: '400px',
@@ -49,12 +44,16 @@ function LoginPage() {
 
   return (
     <div style={loginContainerStyle}>
+      <img
+        src="/logo.png"
+        alt="Logo"
+        style={{ width: '100%', maxWidth: '400px', marginBottom: '1rem', objectFit: 'contain' }}
+      />
       <form onSubmit={handleSubmit} style={loginFormStyle}>
         <h2 style={{ textAlign: 'center', marginTop: 0 }}>Iniciar Sesión</h2>
         {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
-        
         <div className="form-group">
-          <label htmlFor="email" style={{fontWeight: 'bold'}}>Correo Electrónico:</label>
+          <label htmlFor="email" style={{ fontWeight: 'bold' }}>Correo Electrónico:</label>
           <input
             type="email"
             id="email"
@@ -64,9 +63,9 @@ function LoginPage() {
             required
           />
         </div>
-        
+
         <div className="form-group">
-          <label htmlFor="password" style={{fontWeight: 'bold'}}>Contraseña:</label>
+          <label htmlFor="password" style={{ fontWeight: 'bold' }}>Contraseña:</label>
           <input
             type="password"
             id="password"
@@ -76,7 +75,7 @@ function LoginPage() {
             required
           />
         </div>
-        
+
         <button type="submit" style={buttonStyle}>Entrar</button>
       </form>
     </div>

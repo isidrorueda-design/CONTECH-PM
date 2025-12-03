@@ -9,8 +9,13 @@ import { AuthProvider } from './context/AuthContext'; // Importa el Auth
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {/* 2. BrowserRouter DEBE envolver a AuthProvider y App */}
-    <BrowserRouter>
-      <AuthProvider> 
+    <BrowserRouter
+      future={{
+        // Activa la nueva funcionalidad de transiciones para React Router v7
+        v7_startTransition: true,
+      }}
+    >
+      <AuthProvider>
         <App />
       </AuthProvider>
     </BrowserRouter>

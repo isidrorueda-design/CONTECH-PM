@@ -77,7 +77,6 @@ function ContractItemManager({ contract, onDataChange }) {
   const handleEdit = () => {
     const itemToEdit = flatItemList.find(i => i.id === selectedItemId);
     if (!itemToEdit) return;
-
     setClave(itemToEdit.clave || ''); setConcepto(itemToEdit.concepto || '');
     setUnidad(itemToEdit.unidad || ''); setNivelZona(itemToEdit.nivel_zona || '');
     setCantidad(itemToEdit.cantidad_contratada || ''); setPrecio(itemToEdit.precio_unitario || '');
@@ -86,7 +85,6 @@ function ContractItemManager({ contract, onDataChange }) {
     setParentId(itemToEdit.parent_id || null);
     setFormMode('edit'); setIsFormOpen(true);
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -539,6 +537,31 @@ function ContractDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Centralizamos el cálculo de los totales de estimaciones aquí
+  const estimateTotals = useMemo(() => {
+    if (!contract?.estimates || contract.estimates.length === 0) {
+      return { amortizado: 0 };
+    }
+    return contract.estimates.reduce((acc, est) => {
+      let amortizado = est.amortizacion_anticipo || 0;
+      // Si no hay amortización explícita, la calculamos
+      if (!amortizado && contract) {
+        const montoEstimado = est.total_estimado || 0;
+        const totalConIva = contract.total_con_iva || (contract.total_ordinario * (contract.aplica_iva ? 1.16 : 1)) || 1;
+        const anticipo = contract.anticipo || 0;
+        if (totalConIva > 0 && anticipo > 0) {
+          amortizado = montoEstimado * (anticipo / totalConIva);
+        }
+      }
+      acc.amortizado += amortizado;
+      return acc;
+    }, { amortizado: 0 });
+  }, [contract]);
+
+  // Calculamos el saldo por amortizar basado en el total de amortizaciones
+  const saldoPorAmortizarCalculado = (contract?.anticipo || 0) - estimateTotals.amortizado;
+
+
   const fetchData = useCallback(async () => {
     try {
       const contractRes = await api.get(`/contracts/${contractId}`);
@@ -576,19 +599,17 @@ function ContractDetailPage() {
           }
         </div>
         <div style={{ flex: '1 1 300px', borderLeft: '2px solid #eee', paddingLeft: '2rem' }}>
-          <p><strong>Total Contratado:</strong> {formatCurrency(contract.total_ordinario)}</p>
-          <p><strong>IVA:</strong> {formatCurrency(contract.aplica_iva ? contract.total_ordinario * 0.16 : 0)}</p>
-          <p><strong>Total con IVA:</strong> {formatCurrency(contract.total_ordinario * (contract.aplica_iva ? 1.16 : 1))}</p>
-          <p><strong>Anticipo:</strong> {formatCurrency(contract.anticipo)}</p>
-        </div>
-        <div style={{ flex: '1 1 300px', borderLeft: '2px solid #eee', paddingLeft: '2rem' }}>
+          <p><strong>Monto Contratado (c/IVA):</strong> {formatCurrency(contract.total_ordinario * (contract.aplica_iva ? 1.16 : 1))}</p>
           <p><strong>Total Extraordinario:</strong> {formatCurrency(contract.total_extraordinario)}</p>
           <p style={{color: 'green'}}><strong>Total Aditivas:</strong> {formatCurrency(contract.total_aditivas)}</p>
-          <p style={{color: 'red'}}><strong>Total Deductivas:</strong> {formatCurrency(contract.total_deductivas)}</p>         
-          <hr style={{margin: '5px 0'}} />
-          <p><strong>Total Actualizado:</strong> {formatCurrency(contract.total_contratado_vigente)}</p>
-          <p><strong>IVA (Actualizado):</strong> {formatCurrency(contract.iva)}</p>
-          <p><strong>Total con IVA (Actualizado):</strong> {formatCurrency(contract.total_con_iva)}</p>
+          <p style={{color: 'red'}}><strong>Total Deductivas:</strong> {formatCurrency(contract.total_deductivas)}</p>
+          <hr style={{margin: '10px 0'}} />
+          <p><strong>Total con IVA:</strong> {formatCurrency(contract.total_con_iva)}</p>
+        </div>
+        <div style={{ flex: '1 1 300px', borderLeft: '2px solid #eee', paddingLeft: '2rem' }}>
+          <p><strong>Anticipo:</strong> {formatCurrency(contract.anticipo)}</p>
+          <p><strong>Total Amortizado:</strong> {formatCurrency(estimateTotals.amortizado)}</p>
+          <p><strong>Saldo por Amortizar:</strong> {formatCurrency(saldoPorAmortizarCalculado)}</p>
         </div>
       </div>
       <hr />

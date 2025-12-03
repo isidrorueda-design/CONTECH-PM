@@ -1,10 +1,8 @@
 // src/components/budget/ContractPage.jsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Link } from 'react';
 import { useParams, useNavigate } from 'react-router-dom'; 
 import api from '../../api/axiosConfig';
-import ContractModal from './ContractModal'; // (Lo usamos para 'Nuevo')
-
-// Helper de formato
+import ContractModal from './ContractModal';
 const formatCurrency = (value) => {
   if (typeof value !== 'number') value = 0;
   return new Intl.NumberFormat('es-MX', {
@@ -18,13 +16,16 @@ function ContractPage() {
   const navigate = useNavigate();  
   const [contracts, setContracts] = useState([]);
   const [error, setError] = useState(null);
-  const [workItems, setWorkItems] = useState([]); // Estado para las partidas
+  const [workItems, setWorkItems] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [modalMode, setModalMode] = useState('new');
+  const [filterWorkItemId, setFilterWorkItemId] = useState('all');
   const [filterContractorId, setFilterContractorId] = useState('all');
   const fileInputRef = useRef(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [importError, setImportError] = useState(null);
   const [importSuccess, setImportSuccess] = useState(null);  
   const fetchContracts = () => {
@@ -43,7 +44,6 @@ function ContractPage() {
 
   useEffect(() => {
     fetchContracts();
-    // Cargar también la lista de partidas para el dropdown
     api.get(`/projects/${projectId}/work_items/`)
       .then(res => setWorkItems(res.data))
       .catch(err => console.error("Error al cargar partidas", err));
@@ -58,16 +58,38 @@ function ContractPage() {
         contractorMap.set(contract.contractor.id, contract.contractor);
       }
     });
-    return Array.from(contractorMap.values());
+    // Ordenar alfabéticamente por razón social
+    return Array.from(contractorMap.values()).sort((a, b) => 
+      a.razon_social.localeCompare(b.razon_social)
+    );
   }, [contracts]);
 
   const filteredContracts = useMemo(() => {
-    if (filterContractorId === 'all') {
-      return contracts;
-    }
-    return contracts.filter(c => c.contractor?.id == filterContractorId);
-  }, [contracts, filterContractorId]);
+    return contracts.filter(c => {
+      const contractorMatch = filterContractorId === 'all' || c.contractor?.id == filterContractorId;
+      // Si se selecciona "Sin Asignar", buscamos contratos con work_item_id nulo o indefinido.
+      const workItemMatch = filterWorkItemId === 'all' || 
+                            (filterWorkItemId === 'none' ? !c.work_item_id : c.work_item_id == filterWorkItemId);
+      return contractorMatch && workItemMatch;
+    });
+  }, [contracts, filterContractorId, filterWorkItemId]);
 
+  // --- Lógica de Paginación ---
+  const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedContracts = filteredContracts.slice(startIndex, endIndex);
+
+  const handlePageChange = (newPage) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleItemsPerPageChange = (event) => {
+    setItemsPerPage(Number(event.target.value));
+    setCurrentPage(1);
+  };
   // --- Lógica de Totales ---
   const totals = useMemo(() => {
     return filteredContracts.reduce((acc, contract) => {
@@ -130,11 +152,23 @@ function ContractPage() {
     navigate(`/projects/${projectId}/budget/contracts/${contractId}`);
   };  
   const handleWorkItemChange = async (contractId, newWorkItemId) => {
+    // 1. Encontrar el contrato completo que se va a actualizar.
+    const contractToUpdate = contracts.find(c => c.id === contractId);
+    if (!contractToUpdate) {
+      alert('Error: No se pudo encontrar el contrato para actualizar.');
+      return;
+    }
+
+    // 2. Preparar el payload completo para la petición PUT.
+    const updatedData = {
+      ...contractToUpdate, // Copia todos los datos existentes del contrato
+      work_item_id: newWorkItemId ? parseInt(newWorkItemId, 10) : null // Actualiza solo la partida
+    };
+
     try {
-      await api.patch(`/contracts/${contractId}`, {
-        work_item_id: newWorkItemId ? parseInt(newWorkItemId, 10) : null
-      });   
-      fetchContracts();
+      // 3. Usar el método PUT en la URL correcta con el payload completo.
+      await api.put(`/contracts/${contractId}/`, updatedData);
+      fetchContracts(); // Recargar los datos para ver el cambio.
     } catch (err) {
       alert('No se pudo actualizar la partida del contrato.');
       console.error("Error al cambiar la partida:", err);
@@ -191,11 +225,41 @@ function ContractPage() {
       <div className="page-header">
         <h2>Contratos del Proyecto</h2>
         <div className="page-actions">
-          <button className="btn-new" onClick={handleNew}>Nuevo Contrato</button>
-          <button className="btn-modify" onClick={handleEdit}>Modificar</button>
-          <button className="btn-delete" onClick={handleDelete}>Eliminar</button>
-          <button className="btn-import" style={{backgroundColor: '#17a2b8', color: 'white'}} onClick={triggerFileSelect}>Importar</button>
-          <button className="btn-export" style={{backgroundColor: '#28a745', color: 'white'}} onClick={handleExport}>Exportar</button>
+          <button 
+            onClick={handleNew} 
+            title="Nuevo Contrato"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/new.png" alt="Nuevo Contrato" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button 
+            onClick={handleEdit} 
+            title="Editar Contrato"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/editar.png" alt="Editar Contrato" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button 
+            onClick={handleDelete} 
+            title="Eliminar Contrato"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/delete.png" alt="Eliminar Contrato" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button 
+            onClick={triggerFileSelect} 
+            title="Importar Contratos"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/import.png" alt="Importar Contratos" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button 
+            onClick={handleExport} 
+            title="Exportar Contratos"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/export.png" alt="Exportar Contratos" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
         </div>
       </div>
       
@@ -211,8 +275,8 @@ function ContractPage() {
       {importSuccess && <p style={{ color: 'green' }}>{importSuccess}</p>}
       
       {/* --- Filtro (Solo por contratista) --- */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div className="form-group" style={{ maxWidth: '400px' }}>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="form-group" style={{ flex: '1 1 300px', minWidth: '300px' }}>
           <label htmlFor="contractorFilter" style={{ fontWeight: 'bold' }}>Filtrar por Contratista:</label>
           <select id="contractorFilter" value={filterContractorId} onChange={(e) => setFilterContractorId(e.target.value)}>
             <option value="all">-- Mostrar Todos --</option>
@@ -220,6 +284,20 @@ function ContractPage() {
               <option key={contractor.id} value={contractor.id}>
                 {contractor.razon_social}
               </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group" style={{ flex: '1 1 300px', minWidth: '300px' }}>
+          <label htmlFor="workItemFilter" style={{ fontWeight: 'bold' }}>Filtrar por Partida:</label>
+          <select id="workItemFilter" value={filterWorkItemId} onChange={(e) => setFilterWorkItemId(e.target.value)}>
+            <option value="all">-- Todas las Partidas --</option>
+            <option value="none">-- Sin Asignar --</option>
+            {workItems
+              .sort((a, b) => a.description.localeCompare(b.description))
+              .map(wi => (
+                <option key={wi.id} value={wi.id}>
+                  {wi.description}
+                </option>
             ))}
           </select>
         </div>
@@ -247,7 +325,7 @@ function ContractPage() {
           </thead>
           <tbody>
             {loading && <tr><td colSpan="14">Cargando...</td></tr>}
-            {filteredContracts.map(contract => (
+            {paginatedContracts.map(contract => (
               <tr 
                 key={contract.id}
                 className={contract.id === selectedId ? 'selected' : ''}
@@ -292,13 +370,36 @@ function ContractPage() {
               <td>{formatCurrency(totals.total_aditivas)}</td>
               <td>{formatCurrency(totals.total_deductivas)}</td>
               <td>{formatCurrency(totals.total_extraordinario)}</td>
-              <td>{formatCurrency(totals.total_contratado_vigente)}</td>            
+              <td>{formatCurrency(totals.total_contratado_vigente)}</td>
               <td>{formatCurrency(totals.iva)}</td>
               <td>{formatCurrency(totals.total_con_iva)}</td>
               <td>{formatCurrency(totals.anticipo)}</td>
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* --- Controles de Paginación --- */}
+      <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+          <div>
+              <label htmlFor="itemsPerPage">Mostrar: </label>
+              <select id="itemsPerPage" value={itemsPerPage} onChange={handleItemsPerPageChange} style={{ marginRight: '20px' }}>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+              </select>
+              <span>
+                  Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> ({filteredContracts.length} contratos)
+              </span>
+          </div>
+          <div>
+              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="btn-secondary">
+                  Anterior
+              </button>
+              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0} className="btn-secondary" style={{ marginLeft: '10px' }}>
+                  Siguiente
+              </button>
+          </div>
       </div>
 
       {isModalOpen && (

@@ -8,7 +8,6 @@ function IssueForm({ projectId, initialData, onSubmit, onCancel }) {
         topic_type: initialData?.topic_type || 'Issue',
         priority: initialData?.priority || 'Normal',
         assigned_to: initialData?.assigned_to || '',
-        // Los datos de la cámara (viewpoint) se manejan al enviar si es una nueva incidencia
     });
 
     const handleChange = (e) => {

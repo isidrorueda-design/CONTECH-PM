@@ -14,6 +14,9 @@ function ContractListPage() {
     const [filterPartida, setFilterPartida] = useState('');
     const [filterContratista, setFilterContratista] = useState('');
     const fileInputRef = useRef(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     const fetchContracts = useCallback(async () => {
         setLoading(true);
         try {
@@ -22,7 +25,7 @@ function ContractListPage() {
             setError(null);
         } catch (err) {
             console.error(err);
-            setError("No se pudieron cargar los contratos.");
+            setError('No se pudieron cargar los contratos.');
         }
         setLoading(false);
     }, [projectId]);
@@ -32,7 +35,7 @@ function ContractListPage() {
     }, [fetchContracts]);
 
     const handleExport = async () => {
-        setFeedback("Generando archivo...");
+        setFeedback('Generando archivo...');
         try {
             const response = await api.get(`/projects/${projectId}/export-contracts/`, {
                 responseType: 'blob',
@@ -46,11 +49,10 @@ function ContractListPage() {
             link.click();
             link.parentNode.removeChild(link);
             window.URL.revokeObjectURL(url);
-
-            setFeedback("Archivo exportado con éxito.");
+            setFeedback('Archivo exportado con éxito.');
         } catch (err) {
-            console.error("Error al exportar:", err);
-            setFeedback("Error al generar el archivo de exportación.");
+            console.error('Error al exportar:', err);
+            setFeedback('Error al generar el archivo de exportación.');
         }
     };
 
@@ -61,22 +63,18 @@ function ContractListPage() {
     const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-
-        setFeedback("Importando archivo...");
+        setFeedback('Importando archivo...');
         const formData = new FormData();
         formData.append('file', file);
-
         try {
             const response = await api.post(`/projects/${projectId}/import-contracts/`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
-            setFeedback(response.data.message || "Importación completada con éxito.");
+            setFeedback(response.data.message || 'Importación completada con éxito.');
             fetchContracts();
         } catch (err) {
-            console.error("Error al importar:", err);
-            setFeedback(err.response?.data?.detail || "Error al procesar el archivo.");
+            console.error('Error al importar:', err);
+            setFeedback(err.response?.data?.detail || 'Error al procesar el archivo.');
         } finally {
             event.target.value = null;
         }
@@ -98,7 +96,8 @@ function ContractListPage() {
                 acc.push(c.contractor);
             }
             return acc;
-        }, []).sort((a, b) => a.name.localeCompare(b.name));
+        }, [])
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     const filteredContracts = contracts.filter(contract => {
         const partidaMatch = !filterPartida || contract.partida_nombre === filterPartida;
@@ -109,19 +108,43 @@ function ContractListPage() {
     const handleResetFilters = () => {
         setFilterPartida('');
         setFilterContratista('');
+        setCurrentPage(1);
     };
+
+    const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedContracts = filteredContracts.slice(startIndex, endIndex);
+
+    const handlePageChange = (newPage) => {
+        if (newPage > 0 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
+    const handleItemsPerPageChange = (event) => {
+        setItemsPerPage(Number(event.target.value));
+        setCurrentPage(1);
+    };
+
     const totalFiltrado = filteredContracts.reduce((sum, contract) => sum + (contract.total_ordinario || 0), 0);
+
     return (
         <div>
-            <Link to={`/projects/${projectId}/budget`}>&larr; Volver al Presupuesto</Link>
+            <div style={{ marginBottom: '1rem' }}>
+                <Link to={`/projects/${projectId}/budget`}>&larr; Volver al Presupuesto</Link>
+            </div>
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>Contratos del Proyecto</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <button className="btn-secondary" onClick={handleImportClick}>Importar desde Excel</button>
-                    <button className="btn-save" onClick={handleExport}>Exportar a Excel</button>
+                    <button onClick={handleImportClick} title="Importar Contratos" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}>
+                        <img src="/icons/import.png" alt="Importar Contratos" style={{ height: '34px', verticalAlign: 'middle' }} />
+                    </button>
+                    <button onClick={handleExport} title="Exportar Contratos" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}>
+                        <img src="/icons/export.png" alt="Exportar Contratos" style={{ height: '34px', verticalAlign: 'middle' }} />
+                    </button>
                 </div>
             </div>
-
             <input
                 type="file"
                 ref={fileInputRef}
@@ -129,7 +152,6 @@ function ContractListPage() {
                 style={{ display: 'none' }}
                 accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             />
-
             {feedback && <p style={{ fontStyle: 'italic', color: '#007bff' }}>{feedback}</p>}
             {(uniquePartidas.length > 0 || uniqueContractors.length > 0) && (
                 <div className="filters-container" style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -142,7 +164,6 @@ function ContractListPage() {
                             ))}
                         </select>
                     </div>
-
                     <div className="form-group" style={{ flex: '1 1 200px' }}>
                         <label>Filtrar por Contratista:</label>
                         <select className="form-control" value={filterContratista} onChange={e => setFilterContratista(e.target.value)}>
@@ -152,18 +173,11 @@ function ContractListPage() {
                             ))}
                         </select>
                     </div>
-
-                    <button
-                        onClick={handleResetFilters}
-                        className="btn-secondary"
-                        style={{ height: '38px', marginBottom: '0' }}
-                    >Limpiar Filtros</button>
+                    <button onClick={handleResetFilters} className="btn-secondary" style={{ height: '38px', marginBottom: '0' }}>Limpiar Filtros</button>
                 </div>
             )}
-
-            {/* Contenedor para permitir el desplazamiento horizontal de la tabla */}
             <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table className="data-table" style={{ minWidth: '600px' }}> {/* minWidth opcional para forzar scroll en pantallas pequeñas */}
+                <table className="data-table" style={{ minWidth: '600px' }}>
                     <thead>
                         <tr>
                             <th>Número de Contrato</th>
@@ -173,7 +187,7 @@ function ContractListPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredContracts.map(contract => (
+                        {paginatedContracts.map(contract => (
                             <tr key={contract.id}>
                                 <td><Link to={`/projects/${projectId}/contracts/${contract.id}`}>{contract.numero_contrato}</Link></td>
                                 <td>{contract.contractor?.name || 'N/A'}</td>
@@ -188,8 +202,24 @@ function ContractListPage() {
                             <td>{formatCurrency(totalFiltrado)}</td>
                             <td></td>
                         </tr>
-                    </tbody>
+                    </tfoot>
                 </table>
+            </div>
+            {/* Pagination Controls */}
+            <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+                <div>
+                    <label htmlFor="itemsPerPage">Mostrar: </label>
+                    <select id="itemsPerPage" value={itemsPerPage} onChange={handleItemsPerPageChange} style={{ marginRight: '20px' }}>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                    <span>Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> ({filteredContracts.length} contratos)</span>
+                </div>
+                <div>
+                    <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="btn-secondary">Anterior</button>
+                    <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0} className="btn-secondary" style={{ marginLeft: '10px' }}>Siguiente</button>
+                </div>
             </div>
         </div>
     );

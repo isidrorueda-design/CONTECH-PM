@@ -6,7 +6,6 @@ import ContractorModal from './ContractorModal';
 import NewContractorForm from './NewContractorForm';
 
 const formatCurrency = (val) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val || 0);
-
 function ContractorPage() {
   const { projectId } = useParams();
   const [contractors, setContractors] = useState([]);
@@ -21,7 +20,7 @@ function ContractorPage() {
   const fetchContractors = useCallback(() => {
     setLoading(true);
     setError(null);
-    api.get('/contractors/')
+    api.get(`/projects/${projectId}/contractors/`)
       .then(response => {
         setContractors(response.data);
       })
@@ -32,7 +31,7 @@ function ContractorPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     fetchContractors();
@@ -81,7 +80,7 @@ function ContractorPage() {
     formData.append('file', file);
 
     try {
-      const response = await api.post('/contractors/import-excel/', formData, {
+      const response = await api.post(`/projects/${projectId}/contractors/import-excel/`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setImportSuccess(response.data.message);
@@ -108,28 +107,34 @@ function ContractorPage() {
         <h2>Directorio de Contratistas</h2>
         <div className="page-actions">
           <button
-            className="btn-modify"
+            onClick={() => setIsModalOpen(true)}
+            title="Nuevo Contratista"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
+          >
+            <img src="/icons/new.png" alt="Nuevo Contratista" style={{ height: '34px', verticalAlign: 'middle' }} />
+          </button>
+          <button
             onClick={handleEditClick}
+            title="Modificar Contratista"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px', opacity: !selectedContractorId ? 0.5 : 1 }}
             disabled={!selectedContractorId}
-            style={{ opacity: !selectedContractorId ? 0.5 : 1, cursor: !selectedContractorId ? 'not-allowed' : 'pointer' }}
           >
-            Modificar
+            <img src="/icons/editar.png" alt="Modificar Contratista" style={{ height: '34px', verticalAlign: 'middle' }} />
           </button>
           <button
-            className="btn-delete"
             onClick={handleDelete}
+            title="Borrar Contratista"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px', opacity: !selectedContractorId ? 0.5 : 1 }}
             disabled={!selectedContractorId}
-            style={{ opacity: !selectedContractorId ? 0.5 : 1, cursor: !selectedContractorId ? 'not-allowed' : 'pointer' }}
           >
-            Borrar
+            <img src="/icons/delete.png" alt="Borrar Contratista" style={{ height: '34px', verticalAlign: 'middle' }} />
           </button>
-          <button className="btn-new" onClick={() => setIsModalOpen(true)}>Nuevo Contratista</button>
           <button
-            className="btn-import"
-            style={{ backgroundColor: '#17a2b8', color: 'white' }}
             onClick={triggerFileSelect}
+            title="Importar Contratistas"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}
           >
-            Importar
+            <img src="/icons/import.png" alt="Importar Contratistas" style={{ height: '34px', verticalAlign: 'middle' }} />
           </button>
         </div>
       </div>
@@ -186,6 +191,7 @@ function ContractorPage() {
         <ContractorModal
           mode="new"
           onClose={() => setIsModalOpen(false)}
+          projectId={projectId}
           onSave={handleCreated}
         />
       )}
@@ -193,6 +199,7 @@ function ContractorPage() {
         <ContractorModal
           mode="edit"
           initialData={selectedContractor}
+          projectId={projectId}
           onClose={() => setEditingContractor(null)}
           onSave={handleUpdated}
         />
